@@ -1,0 +1,68 @@
+name: checks
+
+# Keeps the two things that are easy to get silently wrong honest:
+#   1. config/events.xml obeys the rules the price model relies on
+#   2. the generated reference docs still match that config
+#
+# A scripted edit once dropped `tier` from eight chains, changing how far LOW
+# events rippled, and nothing failed. That is what (1) is for. And a generated
+# doc that has drifted is worse than no doc, because it is trusted — that is (2).
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  config-and-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate event config
+        run: python3 tools/validate_config.py
+
+      - name: Hand-written docs match the config
+        run: python3 tools/audit_docs.py
+
+      - name: Generated docs are up to date
+        run: |
+          python3 tools/event_review.py -o docs/event-review.md --check
+          python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt --check
+
+  lua:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The game runs LuaJIT (5.1), so prefer 5.1 and fall back to 5.4 rather
+      # than pinning a version that might leave the archives. The scripts avoid
+      # anything version-specific, so either interpreter is a valid check.
+      - name: Install Lua
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.1 || sudo apt-get install -y lua5.4
+          if command -v lua5.1 >/dev/null; then
+            echo "LUA=lua5.1"  >> "$GITHUB_ENV"
+            echo "LUAC=luac5.1" >> "$GITHUB_ENV"
+          else
+            echo "LUA=lua5.4"  >> "$GITHUB_ENV"
+            echo "LUAC=luac5.4" >> "$GITHUB_ENV"
+          fi
+
+      - name: Syntax-check every script
+        run: |
+          echo "using $LUAC"
+          find FS25_MarketShockwaves/scripts -name '*.lua' -print0 \
+            | xargs -0 -n1 "$LUAC" -p
+
+      - name: Model tests
+        run: $LUA tools/test_model.lua
+
+      - name: Settings menu tests
+        run: $LUA tools/test_settings_menu.lua

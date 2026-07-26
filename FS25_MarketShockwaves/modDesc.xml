@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<modDesc descVersion="96">
+    <author>Tony_Carboni</author>
+    <!-- Bumped per test build. The LOADED MODS line in log.txt reports this,
+         which is the quickest way to tell a stale install from a real bug. -->
+    <version>0.9.0.0</version>
+
+    <title>
+        <en>Market Shockwaves</en>
+    </title>
+
+    <description>
+        <en><![CDATA[Market prices move in waves. Seasonal events - droughts, bumper harvests, harsh winters - send shocks through the economy, and those shocks ripple down the production chain: a grain drought lifts wheat first, then flour, then bread, each a little later and a little softer, until the next harvest corrects the market.
+
+- Events roll daily within agronomically-grounded seasonal windows
+- Three severity tiers, each with its own ripple depth and price curve
+- Prices build, plateau and correct over months - never a flat modifier
+- Settings for frequency, intensity, duration, chain depth and event types,
+  in ESC - Settings - Game Settings
+
+WORK IN PROGRESS - singleplayer only for now.]]></en>
+    </description>
+
+    <iconFilename>icon_marketShockwaves.dds</iconFilename>
+
+    <!-- Singleplayer first; MP sync planned for a later version -->
+    <multiplayer supported="false"/>
+
+    <!-- Lua is loaded in dependency order. Pure-logic modules first, then the
+         game-integration layer, then the entry point that registers listeners. -->
+    <extraSourceFiles>
+        <sourceFile filename="scripts/lib/Logger.lua"/>
+        <sourceFile filename="scripts/lib/Random.lua"/>
+        <sourceFile filename="scripts/lib/Diagnostics.lua"/>
+        <sourceFile filename="scripts/model/Curve.lua"/>
+        <sourceFile filename="scripts/model/EventDef.lua"/>
+        <sourceFile filename="scripts/model/ActiveEvent.lua"/>
+        <sourceFile filename="scripts/model/EventScheduler.lua"/>
+        <sourceFile filename="scripts/model/PriceModel.lua"/>
+        <sourceFile filename="scripts/game/EconomyAdapter.lua"/>
+        <sourceFile filename="scripts/game/CalendarAdapter.lua"/>
+        <sourceFile filename="scripts/game/SettingsAdapter.lua"/>
+        <sourceFile filename="scripts/game/SettingsMenu.lua"/>
+        <sourceFile filename="scripts/game/PriceDisplayAdapter.lua"/>
+        <sourceFile filename="scripts/game/NotificationAdapter.lua"/>
+        <sourceFile filename="scripts/MarketShockwaves.lua"/>
+    </extraSourceFiles>
+
+    <l10n filenamePrefix="l10n/l10n"/>
+</modDesc>

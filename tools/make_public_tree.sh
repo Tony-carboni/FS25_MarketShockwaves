@@ -1,0 +1,133 @@
+#!/usr/bin/env bash
+# Build the tree to publish as the PUBLIC repository.
+#
+#   ./tools/make_public_tree.sh [DEST]        # default: ../FS25_MarketShockwaves
+#
+# This repository stays private and keeps the full development history. The
+# public one gets a single squashed commit containing nothing third-party, so no
+# GIANTS data and no other modder's source is ever in public history — removing
+# a file later does not remove it from history, which is why this is a fresh
+# tree rather than a deletion commit.
+#
+# What is EXCLUDED and why:
+#   reference/            GIANTS and DLC game data, plus another mod's source
+#   build/                build output
+#   .claude/              local agent settings
+#
+# Everything else ships: the mod, the tools, the tests, the CI, and the docs.
+# The tools degrade gracefully with reference/ absent (they say so and skip the
+# checks that need game data), which is verified below rather than assumed.
+set -euo pipefail
+
+cd "$(dirname "$0")/.."
+SRC="$PWD"
+# Named after the mod, matching the zip and the mod folder, because that is
+# what someone arriving from KingMods expects to land on.
+DEST="${1:-$PWD/../FS25_MarketShockwaves}"
+
+echo "== preflight: the private tree must be clean and passing =="
+if [ -n "$(git status --porcelain)" ]; then
+    echo "  refusing: uncommitted changes. Commit first, so what is published"
+    echo "  corresponds to a real commit in the private history."
+    exit 1
+fi
+./tools/build.sh >/dev/null
+echo "  ok — build, validation, doc audit and both suites pass"
+
+echo "== copying tracked files =="
+rm -rf "$DEST"
+mkdir -p "$DEST"
+# Only git-tracked files, so nothing untracked or ignored can ride along.
+git ls-files -z \
+  | grep -zv '^reference/' \
+  | grep -zv '^\.claude/' \
+  | tar --null -cf - -T - \
+  | tar -xf - -C "$DEST"
+
+echo "== verifying nothing third-party leaked =="
+FAIL=0
+# Any file naming a fill type wholesale is game data, not our config.
+while IFS= read -r -d '' f; do
+    case "$f" in
+        */config/events.xml|*/l10n/*|*docs/filltype-coverage.txt|*tools/*) continue ;;
+    esac
+    if grep -lq '<fillType name=' "$f" 2>/dev/null; then
+        echo "  LEAK  $f contains fill type definitions"; FAIL=1
+    fi
+done < <(find "$DEST" -type f -name '*.xml' -print0)
+
+for forbidden in reference marketdynamics fillTypes_basegame gcp_fillTypes gcp_modDesc; do
+    if find "$DEST" -name "*${forbidden}*" -print -quit | grep -q .; then
+        echo "  LEAK  something named '$forbidden' is present"; FAIL=1
+    fi
+done
+
+test -f "$DEST/LICENSE" || { echo "  MISSING LICENSE"; FAIL=1; }
+grep -q 'CC BY-NC-ND' "$DEST/LICENSE" || { echo "  LICENSE is not the chosen one"; FAIL=1; }
+[ "$FAIL" -eq 0 ] || { echo "aborting"; exit 1; }
+echo "  ok — no game data, no third-party source, licence present"
+
+echo "== verifying the tools still work without reference/ =="
+( cd "$DEST"
+  python3 tools/validate_config.py >/dev/null
+  python3 tools/audit_docs.py >/dev/null
+  python3 tools/event_review.py -o docs/event-review.md --check >/dev/null
+  python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt --check >/dev/null
+  lua tools/test_model.lua >/dev/null
+  lua tools/test_settings_menu.lua >/dev/null )
+echo "  ok — validation, audit, freshness checks and both suites pass with no game data"
+
+VERSION=$(grep -oP '(?<=<version>)[^<]+' FS25_MarketShockwaves/modDesc.xml)
+SRC_COMMIT=$(git rev-parse --short HEAD)
+
+echo "== creating the squashed history =="
+( cd "$DEST"
+  git init -q -b main
+  git add -A
+  git -c user.name="Tony_Carboni" -c user.email="toon.budeners@gmail.com" \
+      commit -q -F - <<EOF
+Market Shockwaves $VERSION
+
+A global economy mod for Farming Simulator 25. Market events move prices along
+a curve that builds, holds and corrects when the new harvest lands, and those
+shocks ripple down the production chain.
+
+17 events across 6 categories, an in-game settings menu, mutual exclusion of
+mirrored events, and savegame persistence. Singleplayer.
+
+Licensed CC BY-NC-ND 4.0. Ships no GIANTS game data and edits no fillTypes.xml.
+
+Squashed from the private development repository at $SRC_COMMIT; that history is
+not published because it contains third-party reference material used during
+development.
+EOF
+)
+
+cat <<EOF
+
+Public tree ready: $DEST
+  version $VERSION, squashed from $SRC_COMMIT
+  $(cd "$DEST" && git ls-files | wc -l) files
+
+To publish:
+
+  1. Create an EMPTY PUBLIC repo named FS25_MarketShockwaves on GitHub.
+     No README, no licence, no .gitignore — this tree has all three, and
+     GitHub's versions would collide on the first push.
+
+  2. cd "$DEST"
+     git remote add origin git@github.com:Tony-carboni/FS25_MarketShockwaves.git
+     git push -u origin main
+
+  3. Tag it, which triggers .github/workflows/release.yml to build and attach
+     FS25_MarketShockwaves.zip as a pre-release:
+
+     git tag v$VERSION
+     git push origin v$VERSION
+
+  4. The download link for KingMods is then:
+     https://github.com/Tony-carboni/FS25_MarketShockwaves/releases/latest
+
+Keep developing in the private repo. Re-run this script and force-push to
+publish a new version; the public repo is a snapshot, not a working history.
+EOF

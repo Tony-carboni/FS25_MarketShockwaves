@@ -1,0 +1,60 @@
+Market Shockwaves — a mod for Farming Simulator 25
+Copyright (c) 2026 Tony_Carboni
+
+Licensed under the Creative Commons
+Attribution-NonCommercial-NoDerivatives 4.0 International licence
+(CC BY-NC-ND 4.0).
+
+SPDX-License-Identifier: CC-BY-NC-ND-4.0
+
+The full legal code is the governing text:
+
+    https://creativecommons.org/licenses/by-nc-nd/4.0/legalcode
+
+Summary (human-readable deed): https://creativecommons.org/licenses/by-nc-nd/4.0/
+
+
+WHAT THIS MEANS FOR THIS MOD
+
+This summary is provided for convenience and is NOT a substitute for the licence.
+Where the two differ, the legal code above governs.
+
+You may:
+
+  * download and play the mod
+  * share it unchanged, giving appropriate credit and linking to this licence
+  * read the source and learn from it
+
+You may not:
+
+  * reupload or redistribute it under a different name or authorship
+  * publish modified versions, forks, translations, ports or repacks
+  * use it commercially, or behind any paywall, early-access tier,
+    ad-gated link shortener or donation wall required for access
+
+Requesting permission for something the licence does not grant is welcome —
+open an issue. Permission for a specific use can always be given separately by
+the copyright holder, and is more likely for translations and compatibility
+patches than for forks.
+
+
+WHAT THIS LICENCE DOES NOT COVER
+
+  * Farming Simulator 25, its engine, its data files and its trademarks are the
+    property of GIANTS Software. This mod is an unofficial, unaffiliated
+    third-party addition and is not endorsed by GIANTS Software.
+
+  * Nothing here grants rights over any other mod, or over content this mod
+    interoperates with.
+
+
+A NOTE ON THE NoDerivatives CLAUSE
+
+Chosen deliberately, to prevent reuploads and repacks, which is the practical
+risk for a published mod.
+
+It has a cost worth naming: ND also stops another modder adapting this code, and
+during development this project was itself blocked from building on a
+CC BY-NC-ND mod for exactly that reason — only publicly documented engine API
+facts were used from it, and none of its code. Anyone in that position here
+should ask; see above.

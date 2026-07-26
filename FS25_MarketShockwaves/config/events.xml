@@ -1,0 +1,1028 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!--
+    Market Shockwaves - event definitions.
+
+    Everything here is player-editable. See DESIGN.md for the full model.
+
+    CATEGORY
+      Each event belongs to one of six categories, which is what the in-game
+      settings menu switches on and off as a group:
+        crops       grain and root drought/bumper
+        greenhouse  beetle plague and pest-free season
+        trade       dairy and Mediterranean embargoes and booms
+        biofuel     the mandate cut and boost
+        winter      harsh winter
+        supplies    input price shock and natural disaster
+
+    SUBTYPE (mutual exclusion)
+      Events sharing a `subtype` can NEVER run at the same time. This is for
+      MIRRORED pairs: an ethanol boom on top of an ethanol glut is not a
+      compounding shock, it is the same market telling two opposite stories, and
+      the ripple maths would have them fighting over the same products.
+      Alternating is fine - the moment one expires the other may fire.
+      Omitting `subtype` defaults it to the event's own id, so an unpaired event
+      still blocks only itself, which is the self-overlap rule that always
+      applied. The three unpaired events (harsh winter, natural disaster, input
+      shock) therefore carry no subtype.
+      Events with DIFFERENT subtypes still stack freely, even where they share
+      products - a grain drought during a biofuel glut is two real forces pulling
+      against each other, which is legitimate.
+
+    TRIGGER
+      One roll per in-game day per event:
+        p = (eventsPerYear / sum(baseWeight)) * baseWeight * monthShare / daysPerMonth
+      monthWeights are normalised internally, so a longer season changes WHEN an
+      event fires, not HOW OFTEN. Equal baseWeight => equal frequency.
+      A month weight of 0 means the event cannot start that month.
+
+    SEVERITY
+      Rolled per firing: low 60% / medium 30% / high 10% (override per event).
+      Each severity gives RANGES; the actual values are rolled per instance so
+      no two events share a curve.
+
+    CURVE (per instance)
+      rise to peak at peakPos -> slow plateau decay toward `hold` -> market-wide
+      stabilisation correction over the last `correctionMonths`.
+      priceFactor > 1 raises prices, < 1 lowers them.
+
+    RIPPLE
+      Chains propagate with a per-hop lag and diminishing passThrough.
+      Each chain has an explicit `tier` (1..3) = how far up the processing chain
+      the product sits. A hop applies only when tier <= the severity's
+      rippleDepth, so LOW stays shallow and only HI reaches the top.
+      Tier is explicit, not derived from graph shape: cake is made from flour
+      (a sibling of bread) yet should move later and only on severe shocks.
+      Each product must appear as a `to` exactly once across all chains in an
+      event (single-driver rule) - no double impact.
+-->
+<marketShockwaves>
+
+    <settings>
+        <!-- Average total events per year across all events. 0 disables. -->
+        <eventsPerYear value="1.7"/>
+        <!-- Default severity distribution; must sum to 1.0 -->
+        <severityChances low="0.60" medium="0.30" high="0.10"/>
+        <!-- Default per-hop ripple behaviour -->
+        <ripple lagMonths="1.0" passThrough="0.60"/>
+    </settings>
+
+    <events>
+
+        <!-- ============================================================
+             1. GRAIN DROUGHT - player win, prices up, full magnitude
+             ============================================================ -->
+        <event id="grainDrought" subtype="grain" category="crops" type="win" baseWeight="1.0">
+            <affects>WHEAT BARLEY OAT CANOLA MAIZE SORGHUM SUNFLOWER SOYBEAN</affects>
+
+            <!-- FEB-SEP, peak May-Jun (grain fill). No winter droughts. -->
+            <monthWeights jan="0" feb="0.4" mar="0.8" apr="1.3" may="1.5" jun="1.5"
+                          jul="1.3" aug="1.0" sep="0.6" oct="0" nov="0" dec="0"/>
+
+            <chains>
+                <chain from="WHEAT"     to="FLOUR"          tier="1"/>
+                <chain from="FLOUR"     to="BREAD"          tier="2"/>
+                <chain from="FLOUR"     to="CAKE"           tier="3" lagMonths="2.0" passThrough="0.45"/>
+                <chain from="OAT"       to="CEREAL"         tier="1"/>
+                <chain from="CANOLA"    to="CANOLA_OIL"     tier="1"/>
+                <chain from="SUNFLOWER" to="SUNFLOWER_OIL"  tier="1"/>
+                <!-- STRAW is a CO-PRODUCT, not a processed good: it leaves the
+                     same field in the same pass, so it tracks grain VOLUME.
+                     Drought = less straw = dearer; bumper = excess straw =
+                     cheaper. Same direction as grain, near-zero lag, high
+                     pass-through. WHEAT is its single driver. -->
+                <chain from="WHEAT"     to="STRAW"          tier="1" lagMonths="0.25" passThrough="0.80"/>
+                <!-- FORAGE: a drought dries out pasture regardless of which crop
+                     it hits, so grass and hay move in EVERY drought - and can
+                     therefore be hit by both droughts at once, compounding.
+                     Because of that they are deliberately DAMPED (0.45): each
+                     event moves them only modestly and it is the overlap that
+                     adds up. Modelled as chains rather than in `affects` purely
+                     to get that damping, since products in `affects` always move
+                     at full magnitude. Fresh grass reacts first (pasture visibly
+                     browns); hay follows as cuts come in short.
+                     GRASS / MEADOW / DRYGRASS are field states, not sellable. -->
+                <chain from="WHEAT"     to="GRASS_WINDROW"    tier="1" lagMonths="0.25" passThrough="0.45"/>
+                <chain from="WHEAT"     to="DRYGRASS_WINDROW" tier="1" lagMonths="0.5"  passThrough="0.45"/>
+                <!-- BARLEY->FLOUR dropped: WHEAT is FLOUR's single driver.
+                     MAIZE/SORGHUM/SOYBEAN have no sellable processed good. -->
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="3"  durationMonthsMax="6"
+                          peakPosMin="0.10" peakPosMax="0.40" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.55" correctionMonths="0.8" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="6"  durationMonthsMax="8"
+                          peakPosMin="0.35" peakPosMax="0.60" riseExpMin="1.0" riseExpMax="1.5"
+                          hold="0.62" correctionMonths="1.1" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="10" durationMonthsMax="12"
+                          peakPosMin="0.30" peakPosMax="0.45" riseExpMin="1.5" riseExpMax="2.0"
+                          hold="0.72" correctionMonths="1.2" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             2. GRAIN BUMPER HARVEST - player lose, prices down,
+                downtuned ~50% per the adverse-event rule
+             ============================================================ -->
+        <event id="grainBumper" subtype="grain" category="crops" type="lose" baseWeight="1.0">
+            <affects>WHEAT BARLEY OAT CANOLA MAIZE SORGHUM SUNFLOWER SOYBEAN</affects>
+
+            <!-- JUN-NOV, peak Aug-Sep. Jun-Jul are pre-harvest projection
+                 months; small grains glut Jul-Aug, row crops Sep-Oct. -->
+            <monthWeights jan="0" feb="0" mar="0" apr="0" may="0" jun="0.5"
+                          jul="1.0" aug="1.4" sep="1.5" oct="1.1" nov="0.5" dec="0"/>
+
+            <chains>
+                <chain from="WHEAT"     to="FLOUR"          tier="1"/>
+                <chain from="FLOUR"     to="BREAD"          tier="2"/>
+                <chain from="FLOUR"     to="CAKE"           tier="3" lagMonths="2.0" passThrough="0.45"/>
+                <chain from="OAT"       to="CEREAL"         tier="1"/>
+                <chain from="CANOLA"    to="CANOLA_OIL"     tier="1"/>
+                <chain from="SUNFLOWER" to="SUNFLOWER_OIL"  tier="1"/>
+                <!-- STRAW is a CO-PRODUCT, not a processed good: it leaves the
+                     same field in the same pass, so it tracks grain VOLUME.
+                     Drought = less straw = dearer; bumper = excess straw =
+                     cheaper. Same direction as grain, near-zero lag, high
+                     pass-through. WHEAT is its single driver. -->
+                <chain from="WHEAT"     to="STRAW"          tier="1" lagMonths="0.25" passThrough="0.80"/>
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="3"  durationMonthsMax="6"
+                          peakPosMin="0.10" peakPosMax="0.40" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.55" correctionMonths="0.8" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="6"  durationMonthsMax="8"
+                          peakPosMin="0.35" peakPosMax="0.60" riseExpMin="1.0" riseExpMax="1.5"
+                          hold="0.62" correctionMonths="1.1" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="10" durationMonthsMax="12"
+                          peakPosMin="0.30" peakPosMax="0.45" riseExpMin="1.5" riseExpMax="2.0"
+                          hold="0.72" correctionMonths="1.2" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             3. ROOT & VEGETABLE DROUGHT - player win, prices up
+             ============================================================ -->
+        <event id="rootDrought" subtype="root" category="crops" type="win" baseWeight="1.0">
+            <affects>POTATO SUGARBEET BEETROOT CARROT PARSNIP GREENBEAN PEA SPINACH</affects>
+
+            <!-- MAR-OCT, peak Jun-Jul. Roots bulk and harvest ~1 month later
+                 than grain (potato Aug-Oct, sugarbeet Oct-Nov). -->
+            <monthWeights jan="0" feb="0" mar="0.5" apr="0.9" may="1.2" jun="1.5"
+                          jul="1.5" aug="1.3" sep="0.8" oct="0.3" nov="0" dec="0"/>
+
+            <chains>
+                <chain from="POTATO"    to="POTATOCHIPS"       tier="1"/>
+                <chain from="POTATO"    to="SOUPCANSPOTATO"    tier="2"/>
+                <chain from="SUGARBEET" to="SUGAR"             tier="1"/>
+                <chain from="SUGAR"     to="CHOCOLATE"         tier="3" lagMonths="1.5" passThrough="0.45"/>
+                <chain from="BEETROOT"  to="PRESERVEDBEETROOT"  tier="1"/>
+                <chain from="BEETROOT"  to="SOUPCANSBEETROOT"  tier="2"/>
+                <chain from="CARROT"    to="PRESERVEDCARROTS"   tier="1"/>
+                <chain from="CARROT"    to="SOUPCANSCARROTS"    tier="2"/>
+                <chain from="PARSNIP"   to="PRESERVEDPARSNIP"   tier="1"/>
+                <chain from="PARSNIP"   to="SOUPCANSPARSNIP"    tier="2"/>
+                <chain from="GREENBEAN" to="JARRED_GREENBEAN"  tier="1"/>
+                <chain from="PEA"       to="CANNED_PEAS"       tier="1"/>
+                <chain from="SPINACH"   to="SPINACH_BAGS"      tier="1"/>
+                <!-- FORAGE: a drought dries out pasture regardless of which crop
+                     it hits, so grass and hay move in EVERY drought - and can
+                     therefore be hit by both droughts at once, compounding.
+                     Because of that they are deliberately DAMPED (0.45): each
+                     event moves them only modestly and it is the overlap that
+                     adds up. Modelled as chains rather than in `affects` purely
+                     to get that damping, since products in `affects` always move
+                     at full magnitude. Fresh grass reacts first (pasture visibly
+                     browns); hay follows as cuts come in short.
+                     GRASS / MEADOW / DRYGRASS are field states, not sellable. -->
+                <chain from="POTATO"    to="GRASS_WINDROW"     tier="1" lagMonths="0.25" passThrough="0.45"/>
+                <chain from="POTATO"    to="DRYGRASS_WINDROW"  tier="1" lagMonths="0.5"  passThrough="0.45"/>
+                <!-- CAKE stays with grainDrought (flour-driven).
+                     SOUPCANSMIXED / NOODLESOUP omitted: multi-input blends. -->
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="3"  durationMonthsMax="6"
+                          peakPosMin="0.10" peakPosMax="0.40" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.55" correctionMonths="0.8" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="6"  durationMonthsMax="8"
+                          peakPosMin="0.35" peakPosMax="0.60" riseExpMin="1.0" riseExpMax="1.5"
+                          hold="0.62" correctionMonths="1.1" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="10" durationMonthsMax="12"
+                          peakPosMin="0.30" peakPosMax="0.45" riseExpMin="1.5" riseExpMax="2.0"
+                          hold="0.72" correctionMonths="1.2" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             4. ROOT & VEGETABLE BUMPER HARVEST - player lose, downtuned
+             ============================================================ -->
+        <event id="rootBumper" subtype="root" category="crops" type="lose" baseWeight="1.0">
+            <affects>POTATO SUGARBEET BEETROOT CARROT PARSNIP GREENBEAN PEA SPINACH</affects>
+
+            <!-- JUL-NOV, peak Oct (~1 month after the grain bumper).
+                 Jul-Aug projection, potato/veg glut Aug-Sep, roots Oct-Nov. -->
+            <monthWeights jan="0" feb="0" mar="0" apr="0" may="0" jun="0"
+                          jul="0.5" aug="0.9" sep="1.3" oct="1.5" nov="1.2" dec="0"/>
+
+            <chains>
+                <chain from="POTATO"    to="POTATOCHIPS"       tier="1"/>
+                <chain from="POTATO"    to="SOUPCANSPOTATO"    tier="2"/>
+                <chain from="SUGARBEET" to="SUGAR"             tier="1"/>
+                <chain from="SUGAR"     to="CHOCOLATE"         tier="3" lagMonths="1.5" passThrough="0.45"/>
+                <chain from="BEETROOT"  to="PRESERVEDBEETROOT"  tier="1"/>
+                <chain from="BEETROOT"  to="SOUPCANSBEETROOT"  tier="2"/>
+                <chain from="CARROT"    to="PRESERVEDCARROTS"   tier="1"/>
+                <chain from="CARROT"    to="SOUPCANSCARROTS"    tier="2"/>
+                <chain from="PARSNIP"   to="PRESERVEDPARSNIP"   tier="1"/>
+                <chain from="PARSNIP"   to="SOUPCANSPARSNIP"    tier="2"/>
+                <chain from="GREENBEAN" to="JARRED_GREENBEAN"  tier="1"/>
+                <chain from="PEA"       to="CANNED_PEAS"       tier="1"/>
+                <chain from="SPINACH"   to="SPINACH_BAGS"      tier="1"/>
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="3"  durationMonthsMax="6"
+                          peakPosMin="0.10" peakPosMax="0.40" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.55" correctionMonths="0.8" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="6"  durationMonthsMax="8"
+                          peakPosMin="0.35" peakPosMax="0.60" riseExpMin="1.0" riseExpMax="1.5"
+                          hold="0.62" correctionMonths="1.1" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="10" durationMonthsMax="12"
+                          peakPosMin="0.30" peakPosMax="0.45" riseExpMin="1.5" riseExpMax="2.0"
+                          hold="0.72" correctionMonths="1.2" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             5. HARSH WINTER - neutral (energy sellers gain, fuel buyers
+                pay), full magnitude, winter-scaled short durations.
+                Ripples INPUT-ward: expensive energy lifts biogas feedstock.
+             ============================================================ -->
+        <event id="harshWinter" category="winter" type="neutral" baseWeight="1.0">
+            <affects>DIESEL ELECTRICCHARGE METHANE</affects>
+
+            <!-- NOV-MAR, peak Dec-Jan. Fills the winter gap. -->
+            <monthWeights jan="1.5" feb="1.2" mar="0.5" apr="0" may="0" jun="0"
+                          jul="0" aug="0" sep="0" oct="0" nov="0.6" dec="1.4"/>
+
+            <chains>
+                <!-- Input-ward: energy value pulls biogas feedstock up.
+                     METHANE is the single driver (ELECTRICCHARGE moves with it). -->
+                <chain from="METHANE" to="SILAGE" tier="1"/>
+                <chain from="METHANE" to="MANURE" tier="1"/>
+                <chain from="METHANE" to="LIQUIDMANURE" tier="1"/>
+            </chains>
+
+            <severities>
+                <!-- Durations are winter-scaled: a cold snap is weeks, a brutal
+                     winter a season. The "correction" here is the thaw. -->
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="1" durationMonthsMax="2"
+                          peakPosMin="0.20" peakPosMax="0.45" riseExpMin="0.6" riseExpMax="1.0"
+                          hold="0.55" correctionMonths="0.4" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="2" durationMonthsMax="3"
+                          peakPosMin="0.25" peakPosMax="0.50" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.62" correctionMonths="0.5" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="3" durationMonthsMax="4"
+                          peakPosMin="0.30" peakPosMax="0.50" riseExpMin="1.0" riseExpMax="1.5"
+                          hold="0.72" correctionMonths="0.6" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             6. NATURAL DISASTER - player win, building materials up.
+
+             A DEMAND shock, and the mirror image of a crop event: instead of
+             starting at a raw product and pushing downstream, it starts at the
+             FINISHED building materials being shipped in and pulls BACKWARD
+             toward raw timber - relief orders prefab walls and cement, mills
+             ramp up, and that demand works back to logs.
+
+             Relief is not only construction: blankets and warm clothing are
+             shipped in too, so CLOTHES is a direct order and the demand pulls
+             back through FABRIC to COTTON on exactly the same shape as the
+             timber chain - finished good direct, mill at t1, raw material at t2.
+             That is also why cotton needs no event of its own: it is far too
+             niche a crop to carry one, and a relief effort is a more honest
+             reason for its price to move than any weather story.
+
+             Reach is IDENTICAL at every severity: a relief effort hits the whole
+             construction market at once. Severity changes only the MAGNITUDE and
+             DURATION, so rippleDepth=3 and rippleScale=1.0 throughout. Tiers
+             still shape the TIMING (timber follows walls; furniture comes last).
+             ============================================================ -->
+        <event id="naturalDisaster" category="supplies" type="win" baseWeight="1.0">
+            <!-- What is actually being shipped in: building materials, plus
+                 finished clothing and blankets for the people displaced. All
+                 direct, so they move at full magnitude in every severity. -->
+            <affects>PREFABWALL ROOFPLATES CEMENT CEMENTBRICKS CLOTHES</affects>
+
+            <!-- Available ALL YEAR - a disaster can strike any time - but heavily
+                 weighted to the OCT-APR storm/flood season, peaking Dec-Jan.
+                 That band carries ~78% of firings and fills the deep-winter gap
+                 in the roster. Summer stays live but light (wildfire season). -->
+            <monthWeights jan="1.5" feb="1.4" mar="1.2" apr="1.0" may="0.5" jun="0.4"
+                          jul="0.4" aug="0.5" sep="0.8" oct="1.2" nov="1.4" dec="1.5"/>
+
+            <chains>
+                <!-- t1: mills respond fast. Pass-through is high because this is
+                     a direct demand pull, not a diluted processing step. -->
+                <chain from="PREFABWALL" to="WOODBEAM"  tier="1" lagMonths="0.5" passThrough="0.75"/>
+                <chain from="PREFABWALL" to="PLANKS"    tier="1" lagMonths="0.5" passThrough="0.75"/>
+                <chain from="PREFABWALL" to="BOARDS"    tier="1" lagMonths="0.5" passThrough="0.75"/>
+
+                <!-- t1: textile mills respond as fast as the sawmills do. -->
+                <chain from="CLOTHES"    to="FABRIC"    tier="1" lagMonths="0.5" passThrough="0.75"/>
+
+                <!-- t2: raw log demand follows the mills. -->
+                <chain from="BOARDS"     to="WOOD"      tier="2" lagMonths="0.5" passThrough="0.70"/>
+                <chain from="BOARDS"     to="WOODCHIPS" tier="2" lagMonths="0.5" passThrough="0.70"/>
+                <!-- t2: raw fibre demand follows the weavers, same as logs
+                     follow the sawmills. -->
+                <chain from="FABRIC"     to="COTTON"    tier="2" lagMonths="0.5" passThrough="0.70"/>
+
+                <!-- t3: rebuild the house, then furnish it. Softer and later. -->
+                <chain from="PLANKS"     to="FURNITURE" tier="3" lagMonths="1.5" passThrough="0.50"/>
+                <chain from="PREFABWALL" to="BATHTUB"   tier="3" lagMonths="2.0" passThrough="0.50"/>
+            </chains>
+
+            <severities>
+                <!-- Distinct curve signature: demand spikes almost IMMEDIATELY
+                     (relief orders go out at once, so peakPos is the earliest in
+                     the roster), then holds on a long high plateau through
+                     reconstruction. The end correction is rebuilding finishing,
+                     not a harvest. -->
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.10" peakPosMax="0.20" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="3" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="4" durationMonthsMax="7"
+                          peakPosMin="0.10" peakPosMax="0.20" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="3" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.10" peakPosMax="0.20" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             7. INPUT PRICE SHOCK - player lose, farm input costs up,
+                downtuned ~50% per the adverse-event rule.
+
+             A cost shock on the BUY side: a global supply squeeze (gas-driven
+             fertiliser plants throttling output, mineral freight disruption)
+             hits exactly when players stock up for spreading and drilling
+             season. Fills the Dec-May gap where no lose event could fire.
+
+             Direct: the core inputs bought in bulk each spring. Ripple t1:
+             herbicide, from the same agrochemical industry and logistics.
+             MINERAL_FEED / PIGFOOD / SILAGE_ADDITIVE / LIQUIDSEEDTREATMENT are
+             not on the price table and cannot be reached.
+
+             Lime note: mostly a cost, but players running a stone-crusher lime
+             production actually profit - a small silver lining, kept in the
+             flavour text. -->
+        <event id="inputShock" category="supplies" type="lose" baseWeight="1.0">
+            <affects>FERTILIZER LIQUIDFERTILIZER LIME SEEDS</affects>
+
+            <!-- DEC-MAY, peak Feb-Mar: the restocking window right before
+                 spreading and drilling. Gone by summer. -->
+            <monthWeights jan="1.0" feb="1.4" mar="1.5" apr="1.1" may="0.5" jun="0"
+                          jul="0" aug="0" sep="0" oct="0" nov="0" dec="0.6"/>
+
+            <chains>
+                <chain from="FERTILIZER" to="HERBICIDE"    tier="1" lagMonths="0.5" passThrough="0.65"/>
+                <!-- RICESAPLINGS is deliberately absent, here and everywhere. A
+                     player buys saplings in volumes that are noise against what
+                     they sell, so moving the price is a change nobody can feel -
+                     and an unfelt change still costs a line in every message
+                     explaining it. Left out of the whole roster for that reason. -->
+
+                <!-- SUBSTITUTION effect: dear synthetic fertiliser pushes farmers
+                     toward organic alternatives, bidding them up. Digestate is
+                     the biogas equivalent - spread on fields exactly like slurry,
+                     so it substitutes the same way. Deliberately weak
+                     pass-through (0.35) and a slower lag - substitution demand
+                     takes a while to build, and this is a silver lining inside an
+                     otherwise negative event, so it should not offset the pain. -->
+                <chain from="FERTILIZER" to="MANURE"       tier="1" lagMonths="0.75" passThrough="0.35"/>
+                <chain from="FERTILIZER" to="LIQUIDMANURE" tier="1" lagMonths="0.75" passThrough="0.35"/>
+                <chain from="FERTILIZER" to="DIGESTATE"    tier="1" lagMonths="0.75" passThrough="0.35"/>
+            </chains>
+
+            <severities>
+                <!-- Cost shocks are news-driven: fast onset, stubborn plateau
+                     (supply contracts take months to renegotiate), correction =
+                     new import capacity coming online. -->
+                <severity class="low"    priceFactorMin="1.08" priceFactorMax="1.10"
+                          durationMonthsMin="1" durationMonthsMax="3"
+                          peakPosMin="0.15" peakPosMax="0.35" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.65" correctionMonths="0.5" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="1.10" priceFactorMax="1.15"
+                          durationMonthsMin="3" durationMonthsMax="5"
+                          peakPosMin="0.15" peakPosMax="0.35" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.70" correctionMonths="0.7" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.30" priceFactorMax="1.35"
+                          durationMonthsMin="6" durationMonthsMax="10"
+                          peakPosMin="0.15" peakPosMax="0.35" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.75" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             8. DAIRY EXPORT EMBARGO - player lose, dairy prices down,
+                downtuned ~50% per the adverse-event rule.
+
+             Sanctions close export markets. This ripples BACKWARD, like the
+             natural disaster but in reverse sign: it is the FINISHED export
+             goods that get blocked, so cheese/butter/bottled milk pile up
+             unsold at home and their prices fall - and processors sitting on
+             surplus then bid LESS for raw milk at the farm gate. That is
+             exactly how real dairy counter-sanctions have played out.
+
+             Pass-through to raw milk is high (0.80): dairy farmers are the ones
+             who really absorb an export ban.
+
+             Season is FLAT - sanctions are political, not seasonal, and milk is
+             produced year-round. The only event in the roster with no seasonal
+             preference at all.
+
+             CHOCOLATE is deliberately excluded: it is driven by SUGAR in the
+             root events and is not really a dairy product.
+             ============================================================ -->
+        <event id="dairyEmbargo" subtype="dairyTrade" category="trade" type="lose" baseWeight="1.0">
+            <!-- The blocked export goods themselves. -->
+            <affects>CHEESE BUTTER GOATCHEESE BUFFALOMOZZARELLA
+                     MILK_BOTTLED GOATMILK_BOTTLED BUFFALOMILK_BOTTLED</affects>
+
+            <!-- Flat: a sanction can land in any month. -->
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Backward: unsold processors bid less for raw milk.
+                     One driver per raw milk type (single-driver rule). -->
+                <chain from="CHEESE"            to="MILK"        tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="GOATCHEESE"        to="GOATMILK"    tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="BUFFALOMOZZARELLA" to="BUFFALOMILK" tier="1" lagMonths="0.5" passThrough="0.80"/>
+            </chains>
+
+            <severities>
+                <!-- Sanctions land overnight (fast onset), grind on for a long
+                     time (high hold), and lift slowly as new markets are found. -->
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             9. MEDITERRANEAN EXPORT EMBARGO - player lose, prices down,
+                downtuned ~50% per the adverse-event rule.
+
+             Same backward mechanic as the dairy embargo: blocked exports of
+             olive oil, juice and raisins back up into the growers' prices for
+             olives and grapes.
+
+             Season is FLAT, as for dairy: an embargo is a political event, not
+             a weather or yield one. It devalues whatever stock is still unsold,
+             so the month it lands in carries no special weight.
+             ============================================================ -->
+        <event id="mediterraneanEmbargo" subtype="medTrade" category="trade" type="lose" baseWeight="1.0">
+            <!-- TOMATO is a Mediterranean export staple and is shipped FRESH -
+                 there is no processed tomato product in the base game - so it sits
+                 in `affects` directly rather than behind a chain. That also means
+                 it takes the full swing where olives and grapes are cushioned by
+                 their processors, which is right: a fresh-produce grower is
+                 directly exposed to a closed border. -->
+            <affects>OLIVE_OIL GRAPEJUICE RAISINS TOMATO</affects>
+
+            <!-- FLAT, like the dairy embargo: an embargo hits when it hits.
+                 It is political, not driven by yields or weather - whatever
+                 inventory is still unsold takes the hit, whenever it lands. -->
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Backward: unsold pressers and bottlers pay growers less. -->
+                <chain from="OLIVE_OIL"  to="OLIVE" tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="GRAPEJUICE" to="GRAPE" tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <!-- RAISINS is also grape-derived but GRAPE already has a single
+                     driver above, so no second link (single-driver rule). -->
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             10. DAIRY EXPORT BOOM - player win, dairy prices up, full
+                 magnitude. The MIRROR of the dairy embargo (event 8).
+
+             A new export market opens. Same backward ripple, opposite sign:
+             demand for finished dairy surges, cheese/butter/bottled milk are
+             bid up, and processors chasing volume then pay MORE for raw milk at
+             the farm gate.
+
+             Curve differs from the embargo in onset: sanctions slam shut
+             overnight, whereas a trade deal RAMPS as contracts are signed and
+             shipments scale. So a later peak (0.20-0.40 vs 0.10-0.25) and a
+             gentler rise, but the same durable high plateau.
+
+             Season FLAT, matching the embargo: trade politics are not seasonal
+             and milk is produced year-round.
+             ============================================================ -->
+        <event id="dairyExportBoom" subtype="dairyTrade" category="trade" type="win" baseWeight="1.0">
+            <affects>CHEESE BUTTER GOATCHEESE BUFFALOMOZZARELLA
+                     MILK_BOTTLED GOATMILK_BOTTLED BUFFALOMILK_BOTTLED</affects>
+
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Backward: processors chasing export volume bid up raw milk. -->
+                <chain from="CHEESE"            to="MILK"        tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="GOATCHEESE"        to="GOATMILK"    tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="BUFFALOMOZZARELLA" to="BUFFALOMILK" tier="1" lagMonths="0.5" passThrough="0.80"/>
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             11. MEDITERRANEAN EXPORT BOOM - player win, prices up, full
+                 magnitude. The MIRROR of the Mediterranean embargo (event 9).
+
+             A new market opens for olive oil, juice and raisins; pressers and
+             bottlers chasing supply pay growers more for olives and grapes.
+
+             Season FLAT, matching its embargo counterpart: trade agreements are
+             signed on political timelines, not agricultural ones.
+             ============================================================ -->
+        <event id="mediterraneanExportBoom" subtype="medTrade" category="trade" type="win" baseWeight="1.0">
+            <!-- TOMATO is a Mediterranean export staple and is shipped FRESH -
+                 there is no processed tomato product in the base game - so it sits
+                 in `affects` directly rather than behind a chain. That also means
+                 it takes the full swing where olives and grapes are cushioned by
+                 their processors, which is right: a fresh-produce grower is
+                 directly exposed to a closed border. -->
+            <affects>OLIVE_OIL GRAPEJUICE RAISINS TOMATO</affects>
+
+            <!-- FLAT: trade politics are not seasonal. -->
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Backward: mills and bottlers bid up the growers' fruit. -->
+                <chain from="OLIVE_OIL"  to="OLIVE" tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="GRAPEJUICE" to="GRAPE" tier="1" lagMonths="0.5" passThrough="0.80"/>
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             12. SOUTHEAST ASIAN TRADE DISRUPTION - player win, prices up,
+                 full magnitude.
+
+             A geopolitical event closes the region's export routes. Category is
+             `trade`, not `crops`: nothing has happened to anybody's field, the
+             shipping has stopped. It pairs with the monsoon event below, so
+             switching the trade category off removes both halves.
+
+             FLAT across the year, like the two embargoes: a disruption hits when
+             it hits, and whatever is in transit takes it.
+
+             RICESAPLINGS is deliberately NOT included, here or in any event.
+             It is planting stock rather than a sale, and at the volumes a player
+             buys it the cost would be noise against the rice they sell - a
+             complication that reads as inconsistency rather than depth. SEEDS
+             still moves in the input price shock (event 7); only the rice-
+             specific sapling product is left alone.
+
+             ENOKI is direct: it is overwhelmingly a Chinese/Japanese/Korean crop
+             and arrives on the same ships. OYSTER moves behind it as a
+             SUBSTITUTION, the same mechanism as manure standing in for
+             fertiliser in event 7 - buyers priced out of enoki reach for the
+             locally-grown alternative and bid it up, but only partway.
+
+             Curve: a shipping disruption prices in FAST - the market reacts to
+             the news, not to a harvest - so the peak is early and the rise is
+             steep. It then holds high while alternative supply is arranged, and
+             corrects as routes reopen.
+             ============================================================ -->
+        <event id="asianTradeDisruption" subtype="asiaTrade" category="trade" type="win" baseWeight="1.0">
+            <affects>RICE RICELONGGRAIN ENOKI</affects>
+
+            <!-- FLAT: geopolitics is not seasonal. -->
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- RICE is the single driver for the whole milled/packed tree.
+                     RICELONGGRAIN moves directly instead: it is a separate crop,
+                     not a product of RICE. -->
+                <chain from="RICE"      to="RICEFLOUR"    tier="1" lagMonths="1.0"  passThrough="0.60"/>
+                <chain from="RICE"      to="RICE_BAGS"    tier="1" lagMonths="0.5"  passThrough="0.70"/>
+                <chain from="RICE"      to="RICE_OIL"     tier="1" lagMonths="1.0"  passThrough="0.55"/>
+                <chain from="RICE"      to="RICE_BOXES"   tier="2" lagMonths="1.0"  passThrough="0.50"/>
+                <chain from="RICEFLOUR" to="RICEROLLS"    tier="2" lagMonths="1.0"  passThrough="0.60"/>
+                <!-- ASSUMPTION: noodle soup is treated as rice-noodle based, so
+                     rice flour drives it. It is a blended product and was left
+                     out of the greenhouse events for exactly that reason; here
+                     rice is the plausible primary input rather than one of
+                     several vegetables. Delete this line if that is wrong - it is
+                     the only claim in this event that is not read off the game's
+                     own chain data. -->
+                <chain from="RICEFLOUR" to="NOODLESOUP"   tier="3" lagMonths="2.0"  passThrough="0.45"/>
+                <!-- SUBSTITUTION, not processing: dearer enoki pushes buyers onto
+                     locally grown oyster mushrooms. Diminished, because a
+                     substitute never takes the full swing. -->
+                <chain from="ENOKI"     to="OYSTER"       tier="1" lagMonths="0.5"  passThrough="0.35"/>
+            </chains>
+
+            <severities>
+                <!-- Early peak, steep rise: the market prices in the news within
+                     weeks. High `hold` - a closed route stays closed. -->
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.15" peakPosMax="0.35" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.70" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.15" peakPosMax="0.35" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.78" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.15" peakPosMax="0.35" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             13. FAVOURABLE MONSOON - player lose, prices down, downtuned ~50%
+                 per the adverse-event rule. The MIRROR of event 12.
+
+             A strong, well-timed monsoon gives the region a huge rice crop, and
+             cheap freight carries the surplus everywhere. Same products, same
+             chains, opposite sign.
+
+             SEASONAL where its mirror is flat, and that asymmetry is the point:
+             a disruption is political and lands whenever, but a monsoon is
+             weather on a schedule. The southwest monsoon runs through summer and
+             the main harvest lands in autumn, so the price effect arrives
+             Sep-Jan with the market anticipating it from late August.
+             Month weights are normalised internally, so this narrower window
+             changes WHEN the event fires, never HOW OFTEN - the pair stays
+             balanced against its mirror.
+
+             ENOKI still moves: the region exports cultivated mushrooms on the
+             same cheap freight as the rice. OYSTER follows it down as the
+             substitution runs in reverse - cheap imports undercut the local
+             grower.
+
+             RICESAPLINGS is left out here too, mirroring event 12.
+             ============================================================ -->
+        <event id="monsoonBounty" subtype="asiaTrade" category="trade" type="lose" baseWeight="1.0">
+            <affects>RICE RICELONGGRAIN ENOKI</affects>
+
+            <!-- SEP-JAN, peak Oct-Nov. Aug is the anticipation month: by then
+                 the monsoon's quality is known and the market starts pricing a
+                 big crop before it is cut. -->
+            <monthWeights jan="0.8" feb="0.3" mar="0" apr="0" may="0" jun="0"
+                          jul="0" aug="0.3" sep="0.9" oct="1.5" nov="1.5" dec="1.2"/>
+
+            <chains>
+                <chain from="RICE"      to="RICEFLOUR"    tier="1" lagMonths="1.0"  passThrough="0.60"/>
+                <chain from="RICE"      to="RICE_BAGS"    tier="1" lagMonths="0.5"  passThrough="0.70"/>
+                <chain from="RICE"      to="RICE_OIL"     tier="1" lagMonths="1.0"  passThrough="0.55"/>
+                <chain from="RICE"      to="RICE_BOXES"   tier="2" lagMonths="1.0"  passThrough="0.50"/>
+                <chain from="RICEFLOUR" to="RICEROLLS"    tier="2" lagMonths="1.0"  passThrough="0.60"/>
+                <chain from="RICEFLOUR" to="NOODLESOUP"   tier="3" lagMonths="2.0"  passThrough="0.45"/>
+                <chain from="ENOKI"     to="OYSTER"       tier="1" lagMonths="0.5"  passThrough="0.35"/>
+            </chains>
+
+            <severities>
+                <!-- Glut curve, matching the bumper harvests: the surplus builds
+                     as it is cut and shipped rather than arriving on a headline,
+                     so the peak sits later and the rise accelerates. -->
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="3"  durationMonthsMax="6"
+                          peakPosMin="0.10" peakPosMax="0.40" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.60" correctionMonths="0.8" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="6"  durationMonthsMax="8"
+                          peakPosMin="0.35" peakPosMax="0.60" riseExpMin="1.0" riseExpMax="1.5"
+                          hold="0.68" correctionMonths="1.1" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="10" durationMonthsMax="12"
+                          peakPosMin="0.30" peakPosMax="0.45" riseExpMin="1.5" riseExpMax="2.0"
+                          hold="0.76" correctionMonths="1.2" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             14. BIOFUEL MANDATE CUT - player lose, feedstock prices down,
+                 downtuned ~50% per the adverse-event rule.
+
+             Ethanol stocks have built up, so the government cuts its biofuel
+             intake. Demand for feedstock crops collapses and their prices fall.
+
+             Note on the crop list: maize, sugarbeet and sugarcane are ethanol
+             feedstock (starch/sugar), while soybean is really BIODIESEL
+             feedstock. Both are covered by a single "biofuel mandate", which is
+             how the flavour text frames it, so the four crops sit together
+             coherently.
+
+             RIPPLE: crops no longer going to the refineries get diverted to food
+             and feed, so those markets are oversupplied too - freed-up beet
+             floods the sugar market, and maize goes to silage. Cheaper feed is a
+             small silver lining inside a negative event, like the muck bump in
+             the input shock.
+
+             Season FLAT: this is a policy decision, on a political timeline
+             rather than an agricultural one - the same reasoning as the trade
+             events.
+             ============================================================ -->
+        <event id="ethanolGlut" subtype="ethanol" category="biofuel" type="lose" baseWeight="1.0">
+            <affects>MAIZE SUGARBEET SUGARCANE SOYBEAN</affects>
+
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Diverted to food and feed, softening those markets too. -->
+                <chain from="SUGARBEET" to="SUGAR"  tier="1" lagMonths="0.5" passThrough="0.60"/>
+                <chain from="MAIZE"     to="SILAGE" tier="1" lagMonths="0.5" passThrough="0.50"/>
+            </chains>
+
+            <severities>
+                <!-- A mandate cut is announced and lands fairly fast, then
+                     grinds on: refinery contracts take a long time to rebuild. -->
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.15" peakPosMax="0.30" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.15" peakPosMax="0.30" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.15" peakPosMax="0.30" riseExpMin="0.5" riseExpMax="0.9"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             15. BIOFUEL MANDATE BOOST - player win, feedstock prices up,
+                 full magnitude. The MIRROR of the mandate cut.
+
+             The government raises its biofuel blending target. Refineries
+             compete for feedstock and prices surge; with crops pulled AWAY from
+             food and feed, sugar and silage tighten as well.
+
+             Onset ramps rather than slams, matching the trade-boom precedent:
+             a cut is announced and bites, a boost takes effect as refineries
+             scale up and contract.
+
+             Season FLAT, matching its counterpart.
+             ============================================================ -->
+        <event id="ethanolBoom" subtype="ethanol" category="biofuel" type="win" baseWeight="1.0">
+            <affects>MAIZE SUGARBEET SUGARCANE SOYBEAN</affects>
+
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Pulled away from food and feed, tightening those markets. -->
+                <chain from="SUGARBEET" to="SUGAR"  tier="1" lagMonths="0.5" passThrough="0.60"/>
+                <chain from="MAIZE"     to="SILAGE" tier="1" lagMonths="0.5" passThrough="0.50"/>
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="4" durationMonthsMax="8"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.20" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.3"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             16. GREENHOUSE BEETLE PLAGUE - player win, prices up, full
+                 magnitude.
+
+             A beetle infestation tears through the region's glasshouses. Note
+             the direction: the plague HURTS production, which means SUPPLY drops
+             and prices RISE - good for anyone with crop still to sell. Same
+             logic as a drought, opposite of a bumper harvest.
+
+             First event to touch the greenhouse crops, which no other event
+             reaches.
+
+             MUSHROOMS (ENOKI, OYSTER) are deliberately excluded: they are grown
+             in dark, humid mushroom houses, not glasshouses, and beetles are not
+             their pest. They remain free for a dedicated mushroom event.
+
+             Season: greenhouses are climate-controlled, so this is NOT as
+             seasonal as a field drought - it can happen any month. But pest
+             pressure still tracks outdoor temperature, since insects enter from
+             outside and breed far faster in warmth, so it is strongly
+             summer-weighted.
+             ============================================================ -->
+        <event id="greenhousePest" subtype="greenhouse" category="greenhouse" type="win" baseWeight="1.0">
+            <affects>LETTUCE TOMATO STRAWBERRY SPRING_ONION NAPACABBAGE CHILLI GARLIC</affects>
+
+            <!-- Year-round (heated glass) but peaking Jun-Jul with insect breeding. -->
+            <monthWeights jan="0.2" feb="0.3" mar="0.5" apr="0.9" may="1.3" jun="1.5"
+                          jul="1.5" aug="1.3" sep="0.9" oct="0.5" nov="0.3" dec="0.2"/>
+
+            <chains>
+                <chain from="NAPACABBAGE" to="FERMENTEDNAPACABBAGE" tier="1" lagMonths="0.5" passThrough="0.60"/>
+                <!-- SOUPCANSMIXED / NOODLESOUP omitted: multi-input blends. -->
+            </chains>
+
+            <severities>
+                <!-- Distinct curve: an infestation grows EXPONENTIALLY as the
+                     beetles breed (accelerating rise), then treatment brings it
+                     under control. Durations are short - greenhouse crops cycle
+                     fast, so an outbreak resolves far quicker than a field
+                     drought. The correction is pest control succeeding. -->
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="1" durationMonthsMax="3"
+                          peakPosMin="0.35" peakPosMax="0.55" riseExpMin="1.3" riseExpMax="1.8"
+                          hold="0.55" correctionMonths="0.5" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="3" durationMonthsMax="5"
+                          peakPosMin="0.35" peakPosMax="0.55" riseExpMin="1.3" riseExpMax="1.8"
+                          hold="0.62" correctionMonths="0.7" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="5" durationMonthsMax="8"
+                          peakPosMin="0.35" peakPosMax="0.55" riseExpMin="1.3" riseExpMax="1.8"
+                          hold="0.70" correctionMonths="0.9" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             17. GREENHOUSE PEST-FREE SEASON - player lose, prices down,
+                 downtuned ~50% per the adverse-event rule.
+
+             The MIRROR: beetle numbers collapse over a hard winter, the
+             glasshouses run clean, and yields are outstanding. Abundance pushes
+             greenhouse produce prices down.
+
+             Onset is gentler than the plague: an infestation explodes as beetles
+             breed, whereas an absence of pests reveals itself gradually as crop
+             after crop comes in clean.
+             ============================================================ -->
+        <event id="greenhouseBounty" subtype="greenhouse" category="greenhouse" type="lose" baseWeight="1.0">
+            <affects>LETTUCE TOMATO STRAWBERRY SPRING_ONION NAPACABBAGE CHILLI GARLIC</affects>
+
+            <monthWeights jan="0.2" feb="0.3" mar="0.5" apr="0.9" may="1.3" jun="1.5"
+                          jul="1.5" aug="1.3" sep="0.9" oct="0.5" nov="0.3" dec="0.2"/>
+
+            <chains>
+                <chain from="NAPACABBAGE" to="FERMENTEDNAPACABBAGE" tier="1" lagMonths="0.5" passThrough="0.60"/>
+            </chains>
+
+            <severities>
+                <severity class="low"    priceFactorMin="0.900" priceFactorMax="0.925"
+                          durationMonthsMin="1" durationMonthsMax="3"
+                          peakPosMin="0.25" peakPosMax="0.45" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.55" correctionMonths="0.5" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.850" priceFactorMax="0.900"
+                          durationMonthsMin="3" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.45" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.62" correctionMonths="0.7" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.650" priceFactorMax="0.700"
+                          durationMonthsMin="5" durationMonthsMax="8"
+                          peakPosMin="0.25" peakPosMax="0.45" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.70" correctionMonths="0.9" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+    </events>
+</marketShockwaves>
