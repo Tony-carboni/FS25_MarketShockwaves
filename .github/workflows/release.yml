@@ -14,8 +14,8 @@ on:
     tags: ['v*']
   workflow_dispatch:
     inputs:
-      tag:
-        description: 'Tag to build and release (must already exist)'
+      version:
+        description: 'Version to release, without the v (must match modDesc)'
         required: true
 
 permissions:
@@ -27,7 +27,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.event.inputs.tag || github.ref }}
           fetch-depth: 0
 
       - uses: actions/setup-python@v5
@@ -42,16 +41,20 @@ jobs:
       # The tag and modDesc must agree. A release labelled v0.9.0.0 containing a
       # zip that reports 0.1.0.14 in the mod list is the kind of thing that costs
       # a support thread to untangle.
-      - name: Tag matches modDesc version
+      - name: Version matches modDesc
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          TAG_VERSION="${TAG#v}"
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${GITHUB_REF_NAME#v}"
+          fi
           MOD_VERSION=$(grep -oP '(?<=<version>)[^<]+' FS25_MarketShockwaves/modDesc.xml)
-          echo "tag=$TAG_VERSION  modDesc=$MOD_VERSION"
-          if [ "$TAG_VERSION" != "$MOD_VERSION" ]; then
-            echo "::error::tag $TAG_VERSION does not match modDesc $MOD_VERSION"
+          echo "release=$VERSION  modDesc=$MOD_VERSION"
+          if [ "$VERSION" != "$MOD_VERSION" ]; then
+            echo "::error::release version $VERSION does not match modDesc $MOD_VERSION"
             exit 1
           fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
 
       - name: Build (validates config, audits docs, runs both test suites)
         run: ./tools/build.sh
@@ -68,8 +71,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${{ github.event.inputs.tag || github.ref_name }}"
-          VERSION="${TAG#v}"
+          TAG="v$VERSION"
           NOTES=$(cat <<EOF
           **Market Shockwaves $VERSION** — beta.
 
@@ -99,9 +101,13 @@ jobs:
           best with \`log.txt\`.
           EOF
           )
+          EXTRA=(--target "$GITHUB_SHA")
+          if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            EXTRA=(--verify-tag)     # the tag ref is what triggered this
+          fi
           gh release create "$TAG" \
             build/FS25_MarketShockwaves.zip \
             --title "Market Shockwaves $VERSION" \
             --notes "$NOTES" \
             --prerelease \
-            --verify-tag
+            "${EXTRA[@]}"
