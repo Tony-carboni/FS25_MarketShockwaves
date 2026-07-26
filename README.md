@@ -154,8 +154,13 @@ contributor with no game install can still run everything else.
 
 The public repo is named **`FS25_MarketShockwaves`** — matching the mod, the zip
 and the mod folder, which is what someone arriving from a KingMods link expects.
-Its download URL is then
-`https://github.com/Tony-carboni/FS25_MarketShockwaves/releases/latest`.
+Its download page is
+`https://github.com/Tony-carboni/FS25_MarketShockwaves/releases` — the index, not
+`/releases/latest`. **GitHub's "latest" excludes prereleases**, so while the beta
+is flagged as one, `/releases/latest/download/…` returns 404. The index always
+lists the newest first, prerelease included, and never needs changing between
+versions. Verified: the index and the per-tag asset URL both return 200
+unauthenticated; the `latest/download` shortcut returns 404.
 
 Publishing a new version is: develop here, re-run the script, force-push the
 public repo. It is a snapshot, not a working history.

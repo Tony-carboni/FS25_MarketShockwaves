@@ -126,7 +126,12 @@ To publish:
      git push origin v$VERSION
 
   4. The download link for KingMods is then:
-     https://github.com/Tony-carboni/FS25_MarketShockwaves/releases/latest
+     https://github.com/Tony-carboni/FS25_MarketShockwaves/releases
+
+     NOT .../releases/latest/download/... — GitHub's "latest" EXCLUDES
+     prereleases, so that 404s while the beta is marked as one. The
+     /releases index always lists the newest first, prerelease included,
+     and never needs changing between versions.
 
 Keep developing in the private repo. Re-run this script and force-push to
 publish a new version; the public repo is a snapshot, not a working history.
