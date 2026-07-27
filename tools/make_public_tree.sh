@@ -4,10 +4,22 @@
 #   ./tools/make_public_tree.sh [DEST]        # default: ../FS25_MarketShockwaves
 #
 # This repository stays private and keeps the full development history. The
-# public one gets a single squashed commit containing nothing third-party, so no
-# GIANTS data and no other modder's source is ever in public history — removing
-# a file later does not remove it from history, which is why this is a fresh
-# tree rather than a deletion commit.
+# public one carries ONE COMMIT PER RELEASE and nothing third-party, so no GIANTS
+# data and no other modder's source is ever in public history.
+#
+# Two modes, chosen automatically:
+#
+#   FIRST PUBLISH   DEST does not exist -> git init, one squashed initial commit.
+#                   Squashed rather than a deletion commit because deleting a file
+#                   does not remove it from history.
+#
+#   EVERY RELEASE   DEST is an existing clone -> sync it to this tree and commit
+#   AFTER           on top. A normal push, no force, so public history becomes a
+#                   clean release log and previously published tags and releases
+#                   stay exactly where they were.
+#
+# Re-initialising each time would need a force-push and rewrite public history on
+# every release, which is why it does not do that.
 #
 # What is EXCLUDED and why:
 #   reference/            GIANTS and DLC game data, plus another mod's source
@@ -34,9 +46,29 @@ fi
 ./tools/build.sh >/dev/null
 echo "  ok — build, validation, doc audit and both suites pass"
 
+MODE=init
+if [ -d "$DEST/.git" ]; then
+    MODE=update
+    echo "== updating the existing public clone =="
+    # Sync to whatever the remote has, via FETCH_HEAD rather than
+    # refs/remotes/origin/main. A clone taken while the repo was still empty has
+    # no remote-tracking ref for main, and reset --hard origin/main then fails
+    # with "ambiguous argument". FETCH_HEAD is always valid after a fetch.
+    if git -C "$DEST" fetch --quiet origin main 2>/dev/null; then
+        git -C "$DEST" checkout --quiet -B main FETCH_HEAD
+    else
+        echo "  remote has no main yet — keeping the local branch"
+        git -C "$DEST" checkout --quiet -B main
+    fi
+    # Clear the working tree but KEEP .git, so the next commit lands on top of
+    # the published history instead of replacing it.
+    find "$DEST" -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+else
+    echo "== first publish: creating $DEST =="
+    mkdir -p "$DEST"
+fi
+
 echo "== copying tracked files =="
-rm -rf "$DEST"
-mkdir -p "$DEST"
 # Only git-tracked files, so nothing untracked or ignored can ride along.
 git ls-files -z \
   | grep -zv '^reference/' \
@@ -80,17 +112,13 @@ echo "  ok — validation, audit, freshness checks and both suites pass with no 
 VERSION=$(grep -oP '(?<=<version>)[^<]+' FS25_MarketShockwaves/modDesc.xml)
 SRC_COMMIT=$(git rev-parse --short HEAD)
 
-echo "== creating the squashed history =="
-( cd "$DEST"
-  git init -q -b main
-  git add -A
-  git -c user.name="Tony_Carboni" -c user.email="toon.budeners@gmail.com" \
-      commit -q -F - <<EOF
-Market Shockwaves $VERSION
-
-A global economy mod for Farming Simulator 25. Market events move prices along
-a curve that builds, holds and corrects when the new harvest lands, and those
-shocks ripple down the production chain.
+if [ "$MODE" = init ]; then
+    echo "== creating the initial squashed commit =="
+    ( cd "$DEST" && git init -q -b main )
+    SUBJECT="Market Shockwaves $VERSION"
+    BODY="A global economy mod for Farming Simulator 25. Market events move prices
+along a curve that builds, holds and corrects when the new harvest lands, and
+those shocks ripple down the production chain.
 
 17 events across 6 categories, an in-game settings menu, mutual exclusion of
 mirrored events, and savegame persistence. Singleplayer.
@@ -99,10 +127,52 @@ Licensed CC BY-NC-ND 4.0. Ships no GIANTS game data and edits no fillTypes.xml.
 
 Squashed from the private development repository at $SRC_COMMIT; that history is
 not published because it contains third-party reference material used during
-development.
-EOF
-)
+development."
+else
+    echo "== committing on top of the published history =="
+    SUBJECT="Release $VERSION"
+    BODY="Snapshot of the private development repository at $SRC_COMMIT.
 
+Built and verified before publishing: config validation, documentation audit,
+and both offline test suites."
+fi
+
+( cd "$DEST"
+  git add -A
+  if git diff --cached --quiet; then
+      echo "  nothing changed since the last publish — no commit made"
+  else
+      git -c user.name="Tony_Carboni" -c user.email="toon.budeners@gmail.com" \
+          commit -q -m "$SUBJECT" -m "$BODY"
+      echo "  committed: $SUBJECT"
+  fi )
+
+if [ "$MODE" = update ]; then
+cat <<EOF
+
+Public tree updated: $DEST
+  version $VERSION, from $SRC_COMMIT
+  $(cd "$DEST" && git ls-files | wc -l) files
+
+To publish:
+
+  cd "$DEST"
+  git push origin main          # a normal push; history is not rewritten
+
+Then cut the release. Either tag it:
+
+  git tag v$VERSION
+  git push origin v$VERSION
+
+or, if pushing a tag ref is not available, run the release workflow manually with
+version $VERSION — it creates the tag itself at the commit being built:
+
+  Actions -> release -> Run workflow -> version = $VERSION
+
+The download page stays the same, so KingMods never needs updating:
+  https://github.com/Tony-carboni/FS25_MarketShockwaves/releases
+EOF
+else
 cat <<EOF
 
 Public tree ready: $DEST
@@ -133,6 +203,7 @@ To publish:
      /releases index always lists the newest first, prerelease included,
      and never needs changing between versions.
 
-Keep developing in the private repo. Re-run this script and force-push to
-publish a new version; the public repo is a snapshot, not a working history.
+From now on this script runs in UPDATE mode against that clone: it commits on top
+rather than re-initialising, so no release ever rewrites public history.
 EOF
+fi
