@@ -22,6 +22,7 @@
       mswDump                         write a full diagnostic dump to log.txt
       mswNotify <id> [severity]       preview an event message without starting it
       mswMarkers on|off               toggle the [+13%] commodity markers
+      mswWelcome                      show the welcome message again
 ]]
 
 MarketShockwaves = {}
@@ -32,7 +33,10 @@ local SAVEGAME_KEY = "marketShockwaves"
 -- Bumped on every test build that gets zipped. Logged unconditionally, because
 -- a stale install once cost a full round trip of diagnosis: the log looked like
 -- a code bug when the game was simply running yesterday's files.
-local BUILD = "b17"
+local BUILD = "b18"
+
+-- msw_welcome_p1 .. pN in the l10n file.
+local WELCOME_PARAGRAPHS = 5
 
 function MarketShockwaves.new(modDirectory, modName)
     local self = setmetatable({}, MarketShockwaves_mt)
@@ -68,6 +72,7 @@ function MarketShockwaves.new(modDirectory, modName)
     self.lastRolledDay = nil
     self.lastEventDay = nil     -- day the most recent event STARTED (cooldown)
     self.pendingLoadFile = nil
+    self.welcomeShown = false   -- per savegame; see showWelcome
     return self
 end
 
@@ -121,6 +126,35 @@ function MarketShockwaves:onStartMission(mission)
 
     self.log:info("ready — type mswStatus in the console for state, "
                .. "mswTrigger grainDrought high to force an event")
+
+    -- Here rather than at load time: onStartMission fires once the player is
+    -- actually in the game, and the message is queued like any other, so it
+    -- inherits the notifier's rules about open menus and sleeping.
+    if not self.welcomeShown then
+        self:showWelcome()
+        self.welcomeShown = true
+    end
+end
+
+--- Queue the introduction. Shown automatically once per savegame (the flag is
+--- stored with the rest of our state), and on demand via mswWelcome.
+function MarketShockwaves:showWelcome()
+    local function text(key, fallback)
+        if g_i18n ~= nil and g_i18n:hasText(key) then return g_i18n:getText(key) end
+        return fallback
+    end
+    local paragraphs = {}
+    for i = 1, WELCOME_PARAGRAPHS do
+        local para = text(("msw_welcome_p%d"):format(i), nil)
+        if para ~= nil and para ~= "" then paragraphs[#paragraphs + 1] = para end
+    end
+    if #paragraphs == 0 then
+        paragraphs[1] = "Market events will now move prices. Read the news, "
+                     .. "watch the price table, and decide when to sell."
+    end
+    self.notifier:notify(text("msw_welcome_title", "Market Shockwaves"),
+                         table.concat(paragraphs, "\n\n"),
+                         { patient = true })
 end
 
 function MarketShockwaves:update(dt)
@@ -392,6 +426,12 @@ function MarketShockwaves:save()
         -- sessions can be detected rather than silently rescaling durations.
         setXMLFloat(xml, SAVEGAME_KEY .. "#daysPerMonth",
                     self.calendar:getDaysPerMonth())
+        -- So the introduction is shown once per savegame, not once per load.
+        -- Guarded: a missing engine function here must not cost the player
+        -- their saved events.
+        if setXMLBool ~= nil then
+            setXMLBool(xml, SAVEGAME_KEY .. "#welcomeShown", self.welcomeShown == true)
+        end
 
         local i = 0
         for _, ev in ipairs(self.priceModel:getActiveEvents()) do
@@ -426,6 +466,10 @@ function MarketShockwaves:restorePendingSave(daysPerMonth)
         self.settings:loadFromXML(xml, SAVEGAME_KEY .. ".settings")
         self.lastRolledDay = getXMLFloat(xml, SAVEGAME_KEY .. "#lastRolledDay")
         self.lastEventDay = getXMLFloat(xml, SAVEGAME_KEY .. "#lastEventDay")
+        -- Absent in saves made before the welcome existed, which reads as
+        -- "not shown yet" - so an existing playthrough sees it once too.
+        self.welcomeShown = getXMLBool ~= nil
+            and getXMLBool(xml, SAVEGAME_KEY .. "#welcomeShown") == true
 
         local savedDpm = getXMLFloat(xml, SAVEGAME_KEY .. "#daysPerMonth")
         if savedDpm ~= nil and savedDpm > 0 and savedDpm ~= daysPerMonth then
@@ -636,6 +680,11 @@ function MarketShockwaves:consoleDump()
     return "full diagnostic dump written to log.txt"
 end
 
+function MarketShockwaves:consoleWelcome()
+    self:showWelcome()
+    return "welcome message queued — it opens once no menu is in the way"
+end
+
 function MarketShockwaves:consoleMarkers(onOff)
     if onOff == nil then
         return ("markers are %s — use: mswMarkers on|off")
@@ -709,6 +758,7 @@ local function onLoad(mission)
     addConsoleCommand("mswMarkers", "Market Shockwaves: toggle price markers",  "consoleMarkers", instance)
     addConsoleCommand("mswSettings","Market Shockwaves: list all settings",     "consoleSettings",instance)
     addConsoleCommand("mswReset",   "Market Shockwaves: reset settings",        "consoleReset",   instance)
+    addConsoleCommand("mswWelcome", "Market Shockwaves: show the welcome message again", "consoleWelcome", instance)
 end
 
 local function onLoadFinished(mission)

@@ -107,7 +107,10 @@ function MSWNotificationAdapter:update()
     end
 
     local head = self.queue[1]
-    local timedOut = head.waited >= MAX_QUEUE_FRAMES
+    -- A PATIENT message is never downgraded: it waits for a safe moment however
+    -- long that takes. The welcome text is several paragraphs, and the fallback
+    -- side notification would show a sentence of it for two seconds.
+    local timedOut = (not head.patient) and head.waited >= MAX_QUEUE_FRAMES
 
     if self.safeFrames < SAFE_GRACE_FRAMES and not timedOut then return end
 
@@ -198,12 +201,15 @@ function MSWNotificationAdapter:showDialog(title, text)
 end
 
 --- Queue a message. Never opens a dialog directly - see the header note.
-function MSWNotificationAdapter:notify(title, text)
+--- @param opts table|nil  { patient = true } waits for a dialog indefinitely
+---                        instead of falling back to a notification
+function MSWNotificationAdapter:notify(title, text, opts)
     -- Always log it in full: guarantees the message is recoverable even if no
     -- UI path works, and keeps a record of what the player was told when.
     self.log:info("EVENT >> " .. tostring(title) .. ": " .. tostring(text))
     if g_currentMission == nil then return end
-    self.queue[#self.queue + 1] = { title = title, text = text, waited = 0 }
+    self.queue[#self.queue + 1] = { title = title, text = text, waited = 0,
+                                    patient = opts ~= nil and opts.patient == true }
 end
 
 --- Non-modal paths, used when a dialog is impossible.

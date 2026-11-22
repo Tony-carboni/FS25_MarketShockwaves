@@ -15,6 +15,7 @@
       7. the natural disaster demand shock: uniform reach, backward ripple\n      8. the self-overlap guard: one instance per event id at a time\n     8b. mutual exclusion by subtype: mirrored events never overlap\n      9. the input shock's substitution effect on manure/slurry\n     10. forage damped in every drought, compounding across events\n     11. jitter noise quality: non-affine, uniform, reproducible
      12. commodity markers follow the curve day by day
      13. short seasons (1-2 days/month): chains fire, the news day moves
+     14. the welcome message: queued once, saved, never truncated
 
     Run:  lua tools/test_model.lua
 ]]
@@ -886,6 +887,68 @@ do
           ("%d vs %d months"):format(#short, #long))
     check("wheat follows the same monthly profile at 1 and 12 days/month",
           worst < 3.0, ("worst gap %.1f points"):format(worst))
+end
+
+-- ---------------------------------------------------------------------------
+print("\n[14] welcome message: shown once per savegame, never downgraded")
+do
+    load("game/NotificationAdapter.lua")
+
+    -- (a) a patient message outwaits an open menu; an ordinary one falls back
+    local shown, fallbacks = nil, 0
+    InfoDialog = { show = function(t) shown = t end }
+    g_gui = { currentGui = {} }                         -- a menu is open
+    g_currentMission = { addIngameNotification = function() fallbacks = fallbacks + 1 end }
+
+    local n = MSWNotificationAdapter.new(log)
+    n:notify("Welcome", "LONG TEXT", { patient = true })
+    for _ = 1, 60 * 60 do n:update() end                -- a minute behind a menu
+    check("a patient message is not downgraded while a menu is open",
+          shown == nil and fallbacks == 0 and #n.queue == 1,
+          ("shown=%s fallbacks=%d queued=%d"):format(tostring(shown), fallbacks, #n.queue))
+    g_gui.currentGui = nil                              -- menu closed
+    for _ = 1, 40 do n:update() end
+    check("it opens as a dialog once the menu is closed",
+          shown ~= nil and shown:find("LONG TEXT", 1, true) ~= nil and fallbacks == 0)
+
+    shown, fallbacks = nil, 0
+    g_gui.currentGui = {}
+    n:notify("Event", "short")                          -- ordinary message
+    for _ = 1, 60 * 60 do n:update() end
+    check("an ordinary message still falls back after the timeout",
+          shown == nil and fallbacks == 1)
+    InfoDialog, g_gui, g_currentMission = nil, nil, nil
+
+    -- (b) every paragraph the code asks for exists in the l10n file
+    local function slurp(path)
+        local f = assert(io.open(path, "r")); local t = f:read("*a"); f:close(); return t
+    end
+    local l10n = slurp("FS25_MarketShockwaves/l10n/l10n_en.xml")
+    local src  = slurp(ROOT .. "MarketShockwaves.lua")
+    local want = tonumber(src:match("local WELCOME_PARAGRAPHS = (%d+)"))
+    local have = 0
+    for i = 1, (want or 0) do
+        if l10n:find(('name="msw_welcome_p%d" text="'):format(i), 1, true) then have = have + 1 end
+    end
+    check("l10n has the welcome title", l10n:find('name="msw_welcome_title"', 1, true) ~= nil)
+    check("l10n has every welcome paragraph the code joins",
+          want ~= nil and want > 0 and have == want,
+          ("%s of %s"):format(have, tostring(want)))
+    check("no stray welcome paragraph beyond the count",
+          l10n:find(('name="msw_welcome_p%d"'):format((want or 0) + 1), 1, true) == nil)
+
+    -- (c) wiring: queued when the mission starts, patient, and persisted
+    local start = src:match("function MarketShockwaves:onStartMission%(mission%)(.-)\nend\n")
+    check("the welcome is queued from onStartMission, guarded by the flag",
+          start ~= nil and start:find("if not self.welcomeShown then", 1, true) ~= nil
+          and start:find("self:showWelcome()", 1, true) ~= nil)
+    check("it is queued as a patient message",
+          src:match("function MarketShockwaves:showWelcome%(%)(.-)\nend\n")
+             :find("patient = true", 1, true) ~= nil)
+    check("the shown flag is written to the savegame",
+          src:find('setXMLBool(xml, SAVEGAME_KEY .. "#welcomeShown"', 1, true) ~= nil)
+    check("the shown flag is read back from the savegame",
+          src:find('getXMLBool(xml, SAVEGAME_KEY .. "#welcomeShown")', 1, true) ~= nil)
 end
 
 print(("\n===== %d passed, %d failed =====\n"):format(pass, fail))

@@ -3,6 +3,17 @@
     <texts>
         <!-- Keys follow msw_<eventId>_<severity>_title / _text -->
 
+        <!-- ================= WELCOME (shown once per savegame) =================
+             One key per paragraph; MarketShockwaves:showWelcome joins them with
+             blank lines, so nothing depends on how newlines survive in an XML
+             attribute. -->
+        <text name="msw_welcome_title" text="Market Shockwaves"/>
+        <text name="msw_welcome_p1" text="The world does not sit still while you farm."/>
+        <text name="msw_welcome_p2" text="Somewhere beyond your fields, harvests fail and harvests flood in. Trade routes close. Winters bite harder than anyone planned for. Factories change what they are willing to pay. You will not see any of it happen, but you will feel it at the selling point."/>
+        <text name="msw_welcome_p3" text="When something moves the market, you will hear about it. The first prices stir the day the news breaks, but a shock takes time to show its full weight: it builds, it holds, and sooner or later it corrects. A shock begins with the raw goods and travels down the production chain, one step at a time. When grain runs short, the mills feel it next, then the bakeries, and each step answers a little later and a little more softly than the one before."/>
+        <text name="msw_welcome_p4" text="Read the news, watch the price table, and decide. Sell into a shortage or hold out for the peak. Fill the silos before a glut lands, or empty them after."/>
+        <text name="msw_welcome_p5" text="Every shock passes eventually. Not all of them will be kind to you. A few of them will make you rich."/>
+
         <!-- ================= 1. GRAIN DROUGHT ================= -->
         <text name="msw_grainDrought_low_title" text="Market Report: Dry Spell"/>
         <text name="msw_grainDrought_low_text" text="A brief dry spell has lightly stressed the region's field crops - wheat, barley, oats, maize, sorghum, canola, sunflower and soybean. Prices should tick up modestly before easing back, and with a little less coming off the field, straw firms up alongside. Grass crops are feeling the dry too, so grass and hay are fetching a little more, and millers may feel a faint knock-on."/>
