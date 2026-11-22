@@ -215,7 +215,7 @@ adapting this the same way this project was blocked from adapting someone else's
 | `python3 tools/event_review.py -o docs/event-review.md` | regenerate the event review sheet |
 | `python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt` | regenerate the coverage report |
 | `python3 tools/roster_report.py --markdown` | month-by-month view of the whole roster |
-| `lua tools/test_model.lua` | 79 offline tests of the curve, ripple, scheduler, mutual exclusion and commodity markers |
+| `lua tools/test_model.lua` | 91 offline tests of the curve, ripple, scheduler, mutual exclusion, commodity markers and short-season behaviour |
 | `lua tools/test_settings_menu.lua` | 36 offline tests of the settings rows |
 
 The `*_sim.py` scripts are the Python simulators the Lua model was validated

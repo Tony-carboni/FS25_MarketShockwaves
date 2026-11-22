@@ -32,7 +32,7 @@ local SAVEGAME_KEY = "marketShockwaves"
 -- Bumped on every test build that gets zipped. Logged unconditionally, because
 -- a stale install once cost a full round trip of diagnosis: the log looked like
 -- a code bug when the game was simply running yesterday's files.
-local BUILD = "b16"
+local BUILD = "b17"
 
 function MarketShockwaves.new(modDirectory, modName)
     local self = setmetatable({}, MarketShockwaves_mt)
@@ -166,10 +166,9 @@ function MarketShockwaves:update(dt)
     self.priceModel:rebuild(day)
 
     -- Markers have to be refreshed as the days pass, not just when an event
-    -- fires. On the firing day the curve sits at exactly 1.0, which is below
-    -- PriceDisplayAdapter's MIN_ABS_CHANGE, so that refresh writes nothing; if
-    -- this is the only other path that runs as time goes on and it does not
-    -- refresh, no marker is ever shown for the whole event.
+    -- fires: the modifier table is rebuilt every day, and without this the
+    -- marker written at the firing instant would sit there, stale, for the whole
+    -- event and never be cleared when it ends.
     --
     -- Gated on the day, because update() runs EVERY FRAME while the modifier
     -- table only changes once a day, and refresh() walks every affected fill

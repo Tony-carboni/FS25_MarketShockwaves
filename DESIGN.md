@@ -238,6 +238,38 @@ later still, each hop at a diminishing fraction of the previous swing. The rippl
 baseline). These echoes stack multiplicatively with any *direct* events on the
 downstream product.
 
+### Lag is capped relative to the event
+
+A hop's lag is written in months, which suits a drought that runs most of a year
+and not a cold snap that runs a month or two: there a one-month lag is most of
+the event, and at 1–2 days per month — where a short event is a handful of whole
+days — the downstream product never moved at all. So one month of lag is never
+allowed to take up more than **12 % of the event's duration**
+(`MSWActiveEvent.MAX_HOP_LAG_SHARE`):
+
+```
+lagMonthDays = min(daysPerMonth, 0.12 × durationDays)
+lagDays(hop) = lagDays(parent) + hop.lagMonths × lagMonthDays
+```
+
+The cap is on the length of a lag-month, not on each hop's total, so hops keep
+their relative order (cake's two-month hop is still twice bread's one-month hop).
+Long events are untouched — a high grain drought at 12 days per month has a cap
+of ~16 days against a 12-day month — while every configured chain in a short
+event now has room to play out. Because the capped lag depends only on the
+event's saved duration, a reload reproduces it even if the player changed
+days-per-month in between.
+
+### A day's price is read at mid-day
+
+A game day covers the interval `[d, d+1)` and its price is the curve at
+`d + 0.5` (`MSWActiveEvent.DAY_SAMPLE_OFFSET`), not at `d`. Reading at the first
+instant meant the firing day always sat at exactly 1.0: the news arrived and
+nothing moved until the next day, which at 1 day per month wasted up to half of a
+short event. With the mid-day sample the first prices move on the day of the
+news, and an event traces the same month-by-month profile at 1 day per month as
+at 12 (within ~2 points for a high grain drought).
+
 The dependency graph and base prices come from `reference/product-catalog.md`
 (extracted from the game's real fill types). Livestock/meat are excluded — a
 different game system (see catalog).

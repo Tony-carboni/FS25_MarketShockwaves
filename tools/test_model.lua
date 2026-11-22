@@ -13,6 +13,8 @@
       5. seasonal distribution respects the month windows
       6. straw behaves as a co-product of grain (same direction, no real lag)
       7. the natural disaster demand shock: uniform reach, backward ripple\n      8. the self-overlap guard: one instance per event id at a time\n     8b. mutual exclusion by subtype: mirrored events never overlap\n      9. the input shock's substitution effect on manure/slurry\n     10. forage damped in every drought, compounding across events\n     11. jitter noise quality: non-affine, uniform, reproducible
+     12. commodity markers follow the curve day by day
+     13. short seasons (1-2 days/month): chains fire, the news day moves
 
     Run:  lua tools/test_model.lua
 ]]
@@ -667,13 +669,13 @@ end
 
 -- ---------------------------------------------------------------------------
 print("\n[12] commodity markers track the curve as days pass")
--- Regression test for the bug where markers never appeared during an event.
+-- Regression test for markers going stale during an event.
 --
--- The curve starts at EXACTLY 1.0 on the day an event fires, which is below
--- PriceDisplayAdapter's MIN_ABS_CHANGE. So a refresh that only runs at
--- event-fire time writes no marker, and if nothing refreshes again as days
--- pass, no marker is ever written for the whole event. The daily tick must
--- therefore refresh too.
+-- The modifier table is rebuilt every day, but originally the markers were only
+-- refreshed at the instant an event fired. Whatever was written then (at the
+-- time: nothing, because the curve started at exactly 1.0) stayed on screen for
+-- the whole event, and was never cleared afterwards. The daily tick must
+-- refresh too.
 do
     load("game/PriceDisplayAdapter.lua")
 
@@ -716,27 +718,28 @@ do
     end
     local function isMarked(idx) return fts[idx].title ~= titles[idx] end
 
-    -- (a) the modifier really is exactly 1.0 on the firing day, which is what
-    --     made the old single refresh a no-op
+    -- (a) prices move on the firing day itself, so a marker is due at once
     local m0 = freshModel()
     m0:rebuild(0)
-    check("modifier is exactly 1.0 on the day the event fires",
-          m0:getModifier(1) == 1.0,
+    check("the price already moves on the day the event fires",
+          m0:getModifier(1) > 1.01,
           ("got %.4f"):format(m0:getModifier(1)))
 
-    -- (b) THE BUG: refresh only at event-fire time -> never marked
+    -- (b) THE BUG: refresh only at event-fire time -> the marker goes stale
     resetTitles()
     local buggy = freshModel()
     local disp = PriceDisplayAdapter.new(buggy, nil, log)
     buggy:rebuild(0)
     disp:refresh()                      -- the one refresh the old code did
-    local everMarked = false
-    for d = 1, 25 do
-        buggy:rebuild(d)                -- prices move...
-        if isMarked(1) then everMarked = true end   -- ...but nothing refreshes
-    end
-    check("without a daily refresh the marker never appears (the bug)",
-          not everMarked)
+    local atFire = fts[1].title
+    buggy:rebuild(9)                    -- prices move on, nothing refreshes
+    local truth = titles[1] .. disp:formatMarker(buggy:getModifier(1))
+    check("without a daily refresh the marker is stale mid-event (the bug)",
+          fts[1].title == atFire and fts[1].title ~= truth,
+          ("shows %q, should show %q"):format(fts[1].title, truth))
+    buggy:rebuild(60)                   -- event long over
+    check("without a daily refresh the marker outlives the event (the bug)",
+          isMarked(1))
 
     -- (c) THE FIX: refresh on every daily rebuild -> marker tracks the curve
     resetTitles()
@@ -782,6 +785,107 @@ do
           "refresh() walks every affected fill type; it must not run per frame")
 
     g_fillTypeManager = nil
+end
+
+-- ---------------------------------------------------------------------------
+print("\n[13] short seasons: chains fire and the news moves the market at once")
+-- Most players run 1 or 2 days per month, where a short event is a handful of
+-- whole days. Two things used to go wrong there: a one-month chain lag was most
+-- (or all) of a short event, so downstream products never moved; and a day's
+-- price was read at the day's first instant, so the firing day was always flat.
+do
+    local winter = {
+        id = "harshWinter", type = "neutral", baseWeight = 1.0,
+        affects = { "DIESEL", "ELECTRICCHARGE", "METHANE" },
+        chains = { METHANE = {
+            { to = "SILAGE", tier = 1, lagMonths = 1.0, passThrough = 0.60 } } },
+        severities = { low = severity{
+            priceFactorMin = 1.15, priceFactorMax = 1.20,
+            durationMonthsMin = 1, durationMonthsMax = 2,
+            peakPosMin = 0.20, peakPosMax = 0.45,
+            riseExpMin = 0.6, riseExpMax = 1.0,
+            hold = 0.55, correctionMonths = 0.4, jitter = 0.015,
+            rippleDepth = 1, rippleScale = 0.55 } },
+    }
+    local S = { intensity = 1.0, duration = 1.0 }
+    local SHARE = MSWActiveEvent.MAX_HOP_LAG_SHARE
+
+    -- (a) a cold snap at 1 and 2 days per month, many rolls
+    for _, dpm in ipairs({ 1, 2 }) do
+        local silageDead, flatFiringDay, lagTooLong = 0, 0, 0
+        for _ = 1, 200 do
+            local ev = MSWActiveEvent.new(winter, "low", 0, dpm, S)
+            local best = 0
+            for d = 0, ev.durationDays do
+                best = math.max(best, math.abs(ev:getFactorFor("SILAGE", d) - 1))
+            end
+            if best < 0.01 then silageDead = silageDead + 1 end
+            if math.abs(ev:getFactorFor("DIESEL", 0) - 1) < 0.01 then
+                flatFiringDay = flatFiringDay + 1
+            end
+            if ev.reach.SILAGE.lagDays > SHARE * ev.durationDays + 1e-9 then
+                lagTooLong = lagTooLong + 1
+            end
+        end
+        check(("%d day/month: silage moves in every cold snap"):format(dpm),
+              silageDead == 0, ("dead in %d of 200"):format(silageDead))
+        check(("%d day/month: diesel moves on the day of the news"):format(dpm),
+              flatFiringDay == 0, ("flat in %d of 200"):format(flatFiringDay))
+        check(("%d day/month: a month of lag never exceeds its share of the event"):format(dpm),
+              lagTooLong == 0, ("too long in %d of 200"):format(lagTooLong))
+    end
+
+    -- (b) the cap shortens lags, it never reorders them
+    local ev1 = MSWActiveEvent.new(grainDrought, "high", 0, 1, S)
+    local r = ev1.reach
+    check("short event: flour < bread < cake lag order is kept",
+          r.FLOUR.lagDays > 0 and r.BREAD.lagDays > r.FLOUR.lagDays
+          and r.CAKE.lagDays > r.BREAD.lagDays,
+          ("lags %.2f / %.2f / %.2f"):format(r.FLOUR.lagDays, r.BREAD.lagDays, r.CAKE.lagDays))
+
+    -- (c) long events at long seasons are exactly as configured
+    local ev12 = MSWActiveEvent.new(grainDrought, "high", 0, 12, S)
+    check("12 days/month drought: flour still lags by exactly one month",
+          math.abs(ev12.reach.FLOUR.lagDays - 12) < 1e-9,
+          ("lag %.2f days"):format(ev12.reach.FLOUR.lagDays))
+
+    -- (d) when the cap binds, lag depends only on the event's own (saved)
+    --     duration - so a reload reproduces it even if the player changed
+    --     days-per-month in between
+    local sev = winter.severities.low
+    local a = MSWActiveEvent.buildReach(winter, sev, 1,  nil, 2).SILAGE.lagDays
+    local b = MSWActiveEvent.buildReach(winter, sev, 12, nil, 2).SILAGE.lagDays
+    check("capped lag is the same whatever days-per-month says at reload",
+          math.abs(a - b) < 1e-9, ("%.3f vs %.3f"):format(a, b))
+
+    -- (e) the same drought traces the same month-by-month profile at 1 and at
+    --     12 days per month (midpoint rolls, noise off, month averages)
+    local realRange = MSWRandom.range
+    MSWRandom.range = function(lo, hi) return (lo + hi) / 2 end
+    local function monthly(dpm)
+        local ev = MSWActiveEvent.new(grainDrought, "high", 0, dpm, S)
+        ev.jitter = 0
+        local out = {}
+        for m = 1, math.ceil(ev.durationDays / dpm) do
+            local sum = 0
+            for d = (m - 1) * dpm, m * dpm - 1 do
+                sum = sum + (ev:getFactorFor("WHEAT", d) - 1) * 100
+            end
+            out[m] = sum / dpm
+        end
+        return out
+    end
+    local short, long = monthly(1), monthly(12)
+    MSWRandom.range = realRange
+    local worst = 0
+    for m = 1, math.min(#short, #long) do
+        worst = math.max(worst, math.abs(short[m] - long[m]))
+    end
+    print(("  worst month-average gap, 1 vs 12 days/month: %.1f points"):format(worst))
+    check("same event length in months at both season lengths", #short == #long,
+          ("%d vs %d months"):format(#short, #long))
+    check("wheat follows the same monthly profile at 1 and 12 days/month",
+          worst < 3.0, ("worst gap %.1f points"):format(worst))
 end
 
 print(("\n===== %d passed, %d failed =====\n"):format(pass, fail))

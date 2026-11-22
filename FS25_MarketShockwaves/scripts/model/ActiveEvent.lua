@@ -61,9 +61,22 @@ function MSWActiveEvent.new(def, severityClass, startDay, daysPerMonth, settings
     self.correctionDays  = math.max(1, sev.correctionMonths * daysPerMonth)
     self.jitter          = sev.jitter
 
-    self.reach = MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap)
+    self.reach = MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap,
+                                           self.durationDays)
     return self
 end
+
+--- Largest share of an event's duration that ONE MONTH of chain lag may take
+--- up. See buildReach.
+MSWActiveEvent.MAX_HOP_LAG_SHARE = 0.12
+
+--- A game day covers the interval [d, d+1), and a day's price is read at the
+--- MIDDLE of it, not its first instant. Reading at the start meant the firing
+--- day always sat at exactly 1.0 - the news arrived and nothing moved until the
+--- next day, which at 1 day per month threw away up to half of a short event.
+--- At long seasons half a day is noise, so this changes nothing there; it is
+--- what makes short seasons trace the same monthly profile as long ones.
+MSWActiveEvent.DAY_SAMPLE_OFFSET = 0.5
 
 --- Flatten the chain graph into product -> { lagDays, passThrough }.
 ---
@@ -76,8 +89,25 @@ end
 --- recipe graph — yet it is a more processed good that should move later and
 --- only when a shock is severe. An explicit tier expresses that directly, and
 --- lets LOW stop at flour, MED reach bread, and only HI reach cake.
-function MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap)
+function MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap, durationDays)
     local reach = {}
+    -- LAG IS CAPPED RELATIVE TO THE EVENT. A hop's lag is written in months
+    -- (flour follows wheat by about a month), which is right for a drought that
+    -- runs most of a year and wrong for a cold snap that runs a month or two:
+    -- there a one-month lag is most of the event, so the downstream product
+    -- barely moved, or - at 1-2 days per month, where everything is a handful of
+    -- whole days - never moved at all. Capping each hop at a share of the
+    -- event's own length keeps long cascades exactly as designed and guarantees
+    -- every configured chain has room to play out, at any season length.
+    --
+    -- The cap is applied to the LENGTH OF A LAG-MONTH rather than to each hop's
+    -- total, so hops keep their relative order: cake's two-month hop is still
+    -- twice bread's one-month hop, however short the event.
+    local lagMonthDays = daysPerMonth
+    if durationDays ~= nil then
+        lagMonthDays = math.min(daysPerMonth,
+                                MSWActiveEvent.MAX_HOP_LAG_SHARE * durationDays)
+    end
     local maxDepth = sev.rippleDepth or 1
     -- The player's "Supply chain effects" setting can only ever REDUCE reach,
     -- never extend an event past what its severity allows.
@@ -98,7 +128,7 @@ function MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap)
                     -- Single-driver rule: first (and only) writer wins.
                     if hop.tier == tier and reach[hop.to] == nil then
                         reach[hop.to] = {
-                            lagDays = parent.lagDays + hop.lagMonths * daysPerMonth,
+                            lagDays = parent.lagDays + hop.lagMonths * lagMonthDays,
                             passThrough = parent.passThrough
                                 * math.min(hop.passThrough * scale, 0.95),
                         }
@@ -128,7 +158,9 @@ function MSWActiveEvent:getFactorFor(productName, currentDay)
     if r == nil then return 1.0 end
 
     local elapsed = self:elapsed(currentDay)
-    if elapsed <= 0 or elapsed >= self.durationDays then return 1.0 end
+    if elapsed < 0 or elapsed >= self.durationDays then return 1.0 end
+    -- Mid-day sample: see DAY_SAMPLE_OFFSET.
+    elapsed = elapsed + MSWActiveEvent.DAY_SAMPLE_OFFSET
 
     -- Shape is read at the LAGGED time, so each layer peaks later than the one
     -- feeding it...
@@ -195,7 +227,8 @@ function MSWActiveEvent.loadFromXML(xmlFile, key, def, daysPerMonth, depthCap)
     end
     if def ~= nil and def.severities[self.severity] ~= nil then
         self.reach = MSWActiveEvent.buildReach(def, def.severities[self.severity],
-                                               daysPerMonth, depthCap)
+                                               daysPerMonth, depthCap,
+                                               self.durationDays)
     else
         self.reach = {}
     end
