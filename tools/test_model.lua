@@ -664,5 +664,125 @@ do
           MSWRandom.signedNoise(seed, 42) == MSWRandom.signedNoise(seed, 42))
 end
 
+
+-- ---------------------------------------------------------------------------
+print("\n[12] commodity markers track the curve as days pass")
+-- Regression test for the bug where markers never appeared during an event.
+--
+-- The curve starts at EXACTLY 1.0 on the day an event fires, which is below
+-- PriceDisplayAdapter's MIN_ABS_CHANGE. So a refresh that only runs at
+-- event-fire time writes no marker, and if nothing refreshes again as days
+-- pass, no marker is ever written for the whole event. The daily tick must
+-- therefore refresh too.
+do
+    load("game/PriceDisplayAdapter.lua")
+
+    -- A fill type manager holding just the products this event touches.
+    local titles = { [1] = "Diesel", [2] = "Silage" }
+    local byName = { DIESEL = 1, SILAGE = 2 }
+    local fts = {
+        [1] = { title = titles[1] },
+        [2] = { title = titles[2] },
+    }
+    g_fillTypeManager = {
+        getFillTypeByIndex = function(_, idx) return fts[idx] end,
+    }
+
+    local winter = {
+        id = "harshWinter", type = "neutral", baseWeight = 1.0,
+        affects = { "DIESEL" },
+        chains = { DIESEL = { { to = "SILAGE", tier = 1,
+                                lagMonths = 1.0, passThrough = 0.60 } } },
+        severities = { low = severity{
+            priceFactorMin = 1.15, priceFactorMax = 1.20,
+            durationMonthsMin = 1, durationMonthsMax = 2,
+            peakPosMin = 0.20, peakPosMax = 0.45,
+            riseExpMin = 0.6, riseExpMax = 1.0,
+            hold = 0.55, correctionMonths = 0.4, jitter = 0.015,
+            rippleDepth = 1, rippleScale = 0.55 } },
+    }
+    winter.getSeverity = function(self, c) return self.severities[c] end
+
+    -- A long season, so the curve has day-by-day resolution to observe.
+    local DPM = 12
+    local function freshModel()
+        local m = MSWPriceModel.new(function(n) return byName[n] end, log)
+        m:addEvent(MSWActiveEvent.new(winter, "low", 0, DPM,
+                                      { intensity = 1.0, duration = 1.0 }))
+        return m
+    end
+    local function resetTitles()
+        for i, t in pairs(titles) do fts[i].title = t end
+    end
+    local function isMarked(idx) return fts[idx].title ~= titles[idx] end
+
+    -- (a) the modifier really is exactly 1.0 on the firing day, which is what
+    --     made the old single refresh a no-op
+    local m0 = freshModel()
+    m0:rebuild(0)
+    check("modifier is exactly 1.0 on the day the event fires",
+          m0:getModifier(1) == 1.0,
+          ("got %.4f"):format(m0:getModifier(1)))
+
+    -- (b) THE BUG: refresh only at event-fire time -> never marked
+    resetTitles()
+    local buggy = freshModel()
+    local disp = PriceDisplayAdapter.new(buggy, nil, log)
+    buggy:rebuild(0)
+    disp:refresh()                      -- the one refresh the old code did
+    local everMarked = false
+    for d = 1, 25 do
+        buggy:rebuild(d)                -- prices move...
+        if isMarked(1) then everMarked = true end   -- ...but nothing refreshes
+    end
+    check("without a daily refresh the marker never appears (the bug)",
+          not everMarked)
+
+    -- (c) THE FIX: refresh on every daily rebuild -> marker tracks the curve
+    resetTitles()
+    local fixed = freshModel()
+    local disp2 = PriceDisplayAdapter.new(fixed, nil, log)
+    local markedDays, peakTitle = 0, nil
+    for d = 0, 25 do
+        fixed:rebuild(d)
+        disp2:refresh()                 -- what the daily tick now does
+        if isMarked(1) then
+            markedDays = markedDays + 1
+            if d == 9 then peakTitle = fts[1].title end
+        end
+    end
+    check("with a daily refresh the marker appears while the event runs",
+          markedDays > 10, ("marked on %d of 26 days"):format(markedDays))
+    check("the marker carries the percentage",
+          peakTitle ~= nil and peakTitle:match("^Diesel%s+%[%+%d+%%%]$") ~= nil,
+          ("title was %q"):format(tostring(peakTitle)))
+    print(("  peak-day title: %s"):format(tostring(peakTitle)))
+
+    -- (d) the title is handed back intact once the event is over
+    fixed:rebuild(60)
+    disp2:refresh()
+    check("titles are restored after the event expires",
+          fts[1].title == titles[1] and fts[2].title == titles[2],
+          ("got %q / %q"):format(fts[1].title, fts[2].title))
+
+    -- (e) Bind the contract to the real file. The checks above simulate the
+    --     daily tick by hand, so on their own they would still pass if someone
+    --     deleted the refresh from update(). update() is the only path that
+    --     runs as days pass, so assert the call is actually there.
+    local f = assert(io.open(ROOT .. "MarketShockwaves.lua", "r"))
+    local src = f:read("*a"); f:close()
+    local body = src:match(
+        "function MarketShockwaves:update%(dt%)(.-)\nfunction MarketShockwaves:")
+    check("update() is still parseable for this check", body ~= nil)
+    check("update() refreshes the markers as days pass",
+          body ~= nil and body:match("display:refresh%(%)") ~= nil,
+          "no display:refresh() in update() - markers will never appear")
+    check("that refresh is gated on the day, not run every frame",
+          body ~= nil and body:match("lastMarkedDay") ~= nil,
+          "refresh() walks every affected fill type; it must not run per frame")
+
+    g_fillTypeManager = nil
+end
+
 print(("\n===== %d passed, %d failed =====\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

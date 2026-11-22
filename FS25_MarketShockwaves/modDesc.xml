@@ -3,7 +3,7 @@
     <author>Tony_Carboni</author>
     <!-- Bumped per test build. The LOADED MODS line in log.txt reports this,
          which is the quickest way to tell a stale install from a real bug. -->
-    <version>0.9.0.0</version>
+    <version>0.9.0.1</version>
 
     <title>
         <en>Market Shockwaves</en>

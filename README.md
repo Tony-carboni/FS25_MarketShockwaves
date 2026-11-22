@@ -162,8 +162,32 @@ lists the newest first, prerelease included, and never needs changing between
 versions. Verified: the index and the per-tag asset URL both return 200
 unauthenticated; the `latest/download` shortcut returns 404.
 
-Publishing a new version is: develop here, re-run the script, force-push the
-public repo. It is a snapshot, not a working history.
+### The two-repo workflow
+
+**All development happens here, in the private repo.** New events, tuning,
+scenarios, fixes — commit as often as you like, with the full reasoning in the
+history. Nothing is published until you choose to publish.
+
+**Releasing is four steps:**
+
+| | |
+|---|---|
+| 1 | Bump `<version>` in `FS25_MarketShockwaves/modDesc.xml` and commit |
+| 2 | `./tools/make_public_tree.sh /path/to/public/clone` |
+| 3 | `cd` there and `git push origin main` |
+| 4 | Tag `v<version>` and push it — or run the **release** workflow manually with that version, which creates the tag itself |
+
+Step 4 builds the zip through the full pipeline and attaches it to a
+GitHub release. The KingMods link never changes.
+
+The script detects an existing clone and **commits on top**, so the public repo
+accumulates one commit per release — a clean release log — and no release ever
+rewrites public history. Previously published tags and their releases stay exactly
+where they were, so old download links keep working. Only the very first publish
+squashes, because deleting a file does not remove it from history.
+
+If nothing has changed since the last publish it says so instead of making an
+empty commit.
 
 Note the mod lives in a `FS25_MarketShockwaves/` subfolder rather than at the
 repo root, so the public repo reads `FS25_MarketShockwaves/FS25_MarketShockwaves/`.
@@ -191,7 +215,7 @@ adapting this the same way this project was blocked from adapting someone else's
 | `python3 tools/event_review.py -o docs/event-review.md` | regenerate the event review sheet |
 | `python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt` | regenerate the coverage report |
 | `python3 tools/roster_report.py --markdown` | month-by-month view of the whole roster |
-| `lua tools/test_model.lua` | 71 offline tests of the curve, ripple, scheduler and mutual exclusion |
+| `lua tools/test_model.lua` | 79 offline tests of the curve, ripple, scheduler, mutual exclusion and commodity markers |
 | `lua tools/test_settings_menu.lua` | 36 offline tests of the settings rows |
 
 The `*_sim.py` scripts are the Python simulators the Lua model was validated
