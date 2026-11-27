@@ -210,6 +210,7 @@ adapting this the same way this project was blocked from adapting someone else's
 |---|---|
 | `./tools/build.sh` | check, validate, regenerate, test, package |
 | `python3 tools/validate_config.py` | structural rules the price model relies on |
+| `python3 tools/validate_forecasts.py` | forecasts: every one actionable on the base calendar, events and messages present, no numbers in the texts |
 | `python3 tools/audit_docs.py` | the hand-written docs still match the config |
 | `./tools/make_public_tree.sh` | build the publishable tree, leak-checked |
 | `python3 tools/event_review.py -o docs/event-review.md` | regenerate the event review sheet |
@@ -217,6 +218,8 @@ adapting this the same way this project was blocked from adapting someone else's
 | `python3 tools/roster_report.py --markdown` | month-by-month view of the whole roster |
 | `lua tools/test_model.lua` | 148 offline tests of the curve, ripple, scheduler, stacking, mutual exclusion, opposite products, commodity markers, short-season behaviour, the welcome message and the hub's market view |
 | `lua tools/test_settings_menu.lua` | 49 offline tests of the settings rows, on the hub page and on the GAME SETTINGS fallback |
+| `lua tools/test_forecast.lua` | 108 offline tests of forecasts, the crop calendar and the message history, run against the real config and l10n files |
+| `lua tools/sim_forecast_spikes.lua [years]` | simulate many years with and without forecasts and report price spikes |
 
 The `*_sim.py` scripts are the Python simulators the Lua model was validated
 against — propagation, severity ripple, trigger timing, cooldown.
@@ -283,7 +286,17 @@ mswWelcome                      show the welcome message again
 mswHooks                        check our price hooks are still installed
 mswDebug                        toggle verbose logging
 mswDump                         full diagnostic dump to log.txt
+
+mswForecasts                    open forecasts, and what this map offers
+mswForecast [id] [variant] [70|80|90]   announce a forecast now
+mswForecastSkip                 bring open forecasts to their pre-move
+mswVerdict [outcome]            decide the oldest open forecast now
 ```
+
+The forecast commands are for testing. Forecast ids and variants:
+`millingGrains` (up, down), `vegetableOil` (up, down), `biofuel` (up, down),
+`foodProcessors` (up, down), `sawmill` (open, close), `winterFeed` (severe, long).
+Outcomes for `mswVerdict`: `asForecast stronger milder wrongReason backfire`.
 
 Player settings also live on the mod's own **Market Shockwaves** page in the ESC
 menu, on its **Settings** tab. (Only if that page cannot be added do they fall

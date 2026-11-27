@@ -216,6 +216,26 @@ long enough and you will still be caught out.
 
 ---
 
+### Forecasts
+
+Not every shock arrives unannounced. About once a year, suppliers, analysts or
+forecasters tell you what they expect, months ahead, and how sure they are:
+mills running short of wheat and oats, a biofuel vote, a sawmill opening or
+closing, a hard winter on the way.
+
+A forecast is timed by your map's own crop calendar, so it always arrives while
+you can still decide what to plant, and pays out when that crop is harvested.
+Then you wait. Prices do nothing for months, edge the forecast way just before
+the verdict, and then the verdict lands.
+
+The experts are usually right. Sometimes it hits harder or softer than they
+said. And sometimes everyone plants for the boom, and the boom becomes a glut.
+Planting, holding or selling on a forecast is a gamble; how much you stake is
+up to you.
+
+Open forecasts, and every message the mod has ever shown you, are on the
+**Market Shockwaves** page in the ESC menu.
+
 ### Settings
 
 On the **Market Shockwaves** page in the ESC menu, under its **Settings** tab.
@@ -232,6 +252,7 @@ tab shows what is in the news and which prices are moving today.
 | Event duration | Scales how long events run. |
 | Supply chain effects | Caps how far ripples climb — raw crops only, or all the way up. |
 | Show price markers | Adds the current change to affected commodity names. |
+| Forecasts | Switches forecasts on or off. One already announced still gets its verdict. |
 | Event categories | Seven independent toggles. |
 
 Want a wilder market? Turn intensity and frequency up. Want the occasional

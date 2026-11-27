@@ -63,6 +63,10 @@ local DEFAULTS = {
 
     showMarkers = 1,
 
+    -- Forecasts (speculation). Off stops NEW forecasts; one already announced
+    -- still gets its verdict.
+    forecasts = 1,
+
     catCrops = 1, catGreenhouse = 1, catTrade = 1,
     catBiofuel = 1, catWinter = 1, catSupplies = 1,
     catConsumer = 1,
@@ -72,6 +76,7 @@ local DEFAULTS = {
 local LIMITS = {
     enabled                = { 0, 1,  true },
     showMarkers            = { 0, 1,  true },
+    forecasts              = { 0, 1,  true },
     catCrops               = { 0, 1,  true },
     catGreenhouse          = { 0, 1,  true },
     catTrade               = { 0, 1,  true },
@@ -199,6 +204,8 @@ local MENU_SPEC = {
                  "msw_depth_most", "msw_depth_full" } },
 
     { name = "showMarkers",            kind = "bool" },
+
+    { name = "forecasts",              kind = "bool" },
 
     -- Event categories, matching the category attribute in events.xml.
     { name = "catCrops",      kind = "bool" },

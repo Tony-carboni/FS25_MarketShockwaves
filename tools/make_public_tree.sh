@@ -81,7 +81,7 @@ FAIL=0
 # Any file naming a fill type wholesale is game data, not our config.
 while IFS= read -r -d '' f; do
     case "$f" in
-        */config/events.xml|*/l10n/*|*docs/filltype-coverage.txt|*tools/*) continue ;;
+        */config/events.xml|*/config/forecasts.xml|*/l10n/*|*docs/filltype-coverage.txt|*tools/*) continue ;;
     esac
     if grep -lq '<fillType name=' "$f" 2>/dev/null; then
         echo "  LEAK  $f contains fill type definitions"; FAIL=1
@@ -102,11 +102,13 @@ echo "  ok — no game data, no third-party source, licence present"
 echo "== verifying the tools still work without reference/ =="
 ( cd "$DEST"
   python3 tools/validate_config.py >/dev/null
+  python3 tools/validate_forecasts.py >/dev/null
   python3 tools/audit_docs.py >/dev/null
   python3 tools/event_review.py -o docs/event-review.md --check >/dev/null
   python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt --check >/dev/null
   lua tools/test_model.lua >/dev/null
-  lua tools/test_settings_menu.lua >/dev/null )
+  lua tools/test_settings_menu.lua >/dev/null
+  lua tools/test_forecast.lua >/dev/null )
 echo "  ok — validation, audit, freshness checks and both suites pass with no game data"
 
 VERSION=$(grep -oP '(?<=<version>)[^<]+' FS25_MarketShockwaves/modDesc.xml)

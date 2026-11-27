@@ -44,6 +44,10 @@ Console opens with **`~`** (or **`^`** / **`ù`**, depending on keyboard layout)
 | `mswNotify <id> [severity]` | preview a message without starting an event |
 | `mswMarkers on\|off` | the `[+14%]` commodity name markers |
 | `mswDebug` | toggle extra debug lines |
+| `mswForecasts` | open forecasts, and which forecasts this map offers |
+| `mswForecast [id] [variant] [70\|80\|90]` | announce a forecast now, e.g. `mswForecast sawmill open 80` |
+| `mswForecastSkip` | bring every open forecast to its pre-move; the verdict follows on its own |
+| `mswVerdict [outcome]` | decide the oldest open forecast now, optionally as `asForecast`, `stronger`, `milder`, `wrongReason` or `backfire` |
 
 Event ids: `grainDrought grainBumper rootDrought rootBumper harshWinter
 naturalDisaster inputShock dairyEmbargo mediterraneanEmbargo dairyExportBoom
@@ -107,6 +111,26 @@ mswTrigger grainDrought low        should be REFUSED if one is already active
 
 That last one tests the self-overlap guard — it should decline rather than start
 a second drought.
+
+### f) Forecasts (new in b22, never run in game)
+
+Forecasts arrive on their own, about once a year, so a full cycle takes one to
+two in-game years. To see one in minutes:
+
+1. Check the log after loading: one `crop calendar:` line per crop, then a
+   `forecasts:` block listing each forecast with its message, verdict and effect
+   months. On a map with its own calendar these should match the in-game
+   calendar screen, not the base game.
+2. `mswForecast millingGrains up` — the first time, the Market Speculation
+   explanation appears, then the forecast. Prices must NOT move.
+3. ESC menu, Market Shockwaves page: the forecast is on the **Forecasts** tab as
+   *Open*, and on the **History** tab with the date.
+4. `mswForecastSkip`, then check `mswPrice WHEAT`: a small move the forecast
+   way, a marker on wheat, and the Forecasts tab reads *Verdict close*.
+5. Sleep one month. The verdict message appears, wheat jumps to the outcome, and
+   the forecast leaves the Forecasts tab and appears under *In the news*.
+6. `mswVerdict backfire` on a fresh forecast shows the opposite direction.
+7. Save, reload: open forecasts, the history and the running effect all survive.
 
 ## 5. What to send back
 

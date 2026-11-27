@@ -27,9 +27,20 @@ local MSWActiveEvent_mt = Class(MSWActiveEvent)
 --- @param startDay number game day the event began
 --- @param daysPerMonth number player's days-per-month setting
 --- @param settings table { intensity, duration, supplyChainDepth } user settings
-function MSWActiveEvent.new(def, severityClass, startDay, daysPerMonth, settings)
+--- @param opts table|nil for an event started by a forecast's verdict:
+---        durationMonths  exact length, replacing the rolled one (the effect
+---                        has to last until the crop's next harvest, which
+---                        depends on the map's calendar, not on the config)
+---        titleKey, textKey  the news item the player was shown, when it is
+---                        the verdict message and not the event's own
+---        forecastId      which forecast started it
+function MSWActiveEvent.new(def, severityClass, startDay, daysPerMonth, settings, opts)
     local self = setmetatable({}, MSWActiveEvent_mt)
     local sev = def.severities[severityClass]
+    opts = opts or {}
+    self.titleKey   = opts.titleKey
+    self.textKey    = opts.textKey
+    self.forecastId = opts.forecastId
 
     self.eventId       = def.id
     self.subtype       = def.subtype or def.id
@@ -51,6 +62,9 @@ function MSWActiveEvent.new(def, severityClass, startDay, daysPerMonth, settings
     self.peakFactor = 1.0 + (rolledFactor - 1.0) * intensity
 
     local months = MSWRandom.range(sev.durationMonthsMin, sev.durationMonthsMax) * durScale
+    -- A forecast's effect runs to a point on the calendar, so the player's
+    -- duration setting does not stretch it either.
+    if opts.durationMonths ~= nil then months = opts.durationMonths end
     if months < 0.25 then months = 0.25 end
     self.durationMonths = months
     self.durationDays   = math.max(1, math.floor(months * daysPerMonth + 0.5))
@@ -130,6 +144,11 @@ function MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap, durationDay
         for _, name in ipairs(def.opposite) do
             if reach[name] == nil then
                 reach[name] = { lagDays = 0, passThrough = -oppositeScale }
+                -- Only stored when it shortens: nil means "as long as the event".
+                local share = def.oppositeDurationShare
+                if share ~= nil and share > 0 and share < 1 then
+                    reach[name].durationShare = share
+                end
             end
         end
     end
@@ -174,13 +193,23 @@ function MSWActiveEvent:getFactorFor(productName, currentDay)
 
     local elapsed = self:elapsed(currentDay)
     if elapsed < 0 or elapsed >= self.durationDays then return 1.0 end
+
+    -- A product with a duration share plays the whole curve out in that share
+    -- of the event's length, correction included, and is then back to normal.
+    local durationDays, correctionDays = self.durationDays, self.correctionDays
+    if r.durationShare ~= nil then
+        durationDays = math.max(1, durationDays * r.durationShare)
+        correctionDays = math.min(correctionDays, durationDays)
+        if elapsed >= durationDays then return 1.0 end
+    end
+
     -- Mid-day sample: see DAY_SAMPLE_OFFSET.
     elapsed = elapsed + MSWActiveEvent.DAY_SAMPLE_OFFSET
 
     -- Shape is read at the LAGGED time, so each layer peaks later than the one
     -- feeding it...
     local shape = MSWCurve.shapeAt(elapsed - r.lagDays, {
-        durationDays = self.durationDays,
+        durationDays = durationDays,
         peakFactor   = self.peakFactor,
         peakPos      = self.peakPos,
         riseExp      = self.riseExp,
@@ -192,7 +221,7 @@ function MSWActiveEvent:getFactorFor(productName, currentDay)
     -- ...but the stabilisation envelope is read at the UNLAGGED time, so the
     -- new-harvest correction hits every product simultaneously and the whole
     -- chain returns to baseline together.
-    local envelope = MSWCurve.stabilisation(elapsed, self.durationDays, self.correctionDays)
+    local envelope = MSWCurve.stabilisation(elapsed, durationDays, correctionDays)
 
     return 1.0 + (shape - 1.0) * r.passThrough * envelope
 end
@@ -213,7 +242,12 @@ local SAVED_FIELDS = {
     "eventId", "severity", "startDay", "type", "seed", "peakFactor",
     "durationMonths", "durationDays", "peakPos", "riseExp", "hold",
     "correctionDays", "jitter",
+    -- Only set on an event a forecast started; absent otherwise.
+    "titleKey", "textKey", "forecastId",
 }
+
+local STRING_FIELDS = { eventId = true, severity = true, type = true,
+                        titleKey = true, textKey = true, forecastId = true }
 
 function MSWActiveEvent:saveToXML(xmlFile, key)
     for _, f in ipairs(SAVED_FIELDS) do
@@ -233,10 +267,14 @@ function MSWActiveEvent.loadFromXML(xmlFile, key, def, daysPerMonth, depthCap)
     self.severity = getXMLString(xmlFile, key .. "#severity")
     self.type     = getXMLString(xmlFile, key .. "#type") or "neutral"
     for _, f in ipairs(SAVED_FIELDS) do
-        if f ~= "eventId" and f ~= "severity" and f ~= "type" then
+        if not STRING_FIELDS[f] then
             self[f] = getXMLFloat(xmlFile, key .. "#" .. f)
         end
     end
+    self.titleKey   = getXMLString(xmlFile, key .. "#titleKey")
+    self.textKey    = getXMLString(xmlFile, key .. "#textKey")
+    self.forecastId = getXMLString(xmlFile, key .. "#forecastId")
+    self.subtype    = (def ~= nil and def.subtype) or self.eventId
     if self.eventId == nil or self.startDay == nil or self.durationDays == nil then
         return nil
     end

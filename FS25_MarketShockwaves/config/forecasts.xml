@@ -1,0 +1,473 @@
+<?xml version="1.0" encoding="utf-8" standalone="no"?>
+<!--
+    Forecasts (speculation). See scripts/model/Forecast.lua and DESIGN.md.
+
+    A FORECAST is announced long before anything happens, with a stated
+    confidence. Prices stay flat, then edge the forecast way just before the
+    verdict (the pre-move), and the verdict starts an ordinary event.
+
+    A forecast has a KIND, which decides how its dates are worked out:
+
+      crop    timed by the map's own crop calendar, read at load. The message
+              arrives in the two months before the anchor crop's sowing opens,
+              the verdict falls when its harvest starts, and the effect lasts
+              twelve months: until the harvest after that. `anchors` lists the
+              crops to time it by, first one the map has wins.
+      window  fixed calendar months: `arriveMonths`, each variant's
+              `verdictMonth`, and `endMonth` for when the effect is over.
+      fixed   any month; `leadMonths` to the verdict, `durationMonths` of
+              effect.
+
+    NO MONTHS ARE WRITTEN FOR CROP FORECASTS. Maps change the calendar, and a
+    forecast that arrives after sowing has closed is worthless.
+
+    Each <variant> names the event its verdict starts when the analysts were
+    right (`event`) and the one it starts when the market goes the other way
+    (`backfire`). `extraEvent` is a second, existing event started alongside
+    when the forecast's own cause really happened.
+
+    <premove> lists the products that edge the forecast way before the verdict.
+
+    OUTCOME EVENTS use exactly the schema of config/events.xml, but live here:
+    the random scheduler never rolls them, they have no season, and the tools
+    that document the random events do not list them. Their length is set by
+    the forecast (durationMonths below is only the fallback). Both sides of one
+    forecast share a subtype, so they can never run together.
+-->
+<forecasts>
+    <settings>
+        <!-- Roll rate before the cooldown; with it, about one forecast a year. -->
+        <forecastsPerYear value="3.0"/>
+        <cooldownMonths value="9"/>
+        <maxOpen value="2"/>
+        <!-- THE ACTIONABILITY CHECK: fewer months than this between the message
+             and the verdict, and the forecast is not offered on that map. -->
+        <minLeadMonths value="4"/>
+        <!-- The pre-move is this share of the expected (medium) move. -->
+        <premoveShare value="0.25"/>
+        <!-- How sure the experts are. Never below 70: a 60/40 is not worth
+             speculating on. The number is the true chance they are right. -->
+        <confidence c70="0.50" c80="0.35" c90="0.15"/>
+        <!-- Shares among "the analysts were right" outcomes... -->
+        <outcomes asForecast="40" stronger="12" milder="8" wrongReason="10"/>
+        <!-- ...and how hard a backfire hits (severity of the mirror event). -->
+        <backfire low="60" medium="40"/>
+    </settings>
+
+    <forecast id="millingGrains" kind="crop" anchors="WHEAT OAT" premoveMonths="1" weight="1.0">
+        <premove>WHEAT OAT</premove>
+        <variant id="up"   event="fcGrainsUp"   backfire="fcGrainsDown"/>
+        <variant id="down" event="fcGrainsDown" backfire="fcGrainsUp"/>
+    </forecast>
+
+    <forecast id="vegetableOil" kind="crop" anchors="CANOLA SUNFLOWER" premoveMonths="1" weight="1.0">
+        <premove>CANOLA SUNFLOWER</premove>
+        <variant id="up"   event="fcOilUp"   backfire="fcOilDown"/>
+        <variant id="down" event="fcOilDown" backfire="fcOilUp"/>
+    </forecast>
+
+    <forecast id="biofuel" kind="crop" anchors="MAIZE SOYBEAN" premoveMonths="1" weight="1.0">
+        <premove>MAIZE SOYBEAN</premove>
+        <variant id="up"   event="fcBiofuelUp"   backfire="fcBiofuelDown"/>
+        <variant id="down" event="fcBiofuelDown" backfire="fcBiofuelUp"/>
+    </forecast>
+
+    <forecast id="foodProcessors" kind="crop" anchors="POTATO SUGARBEET SUGARCANE" premoveMonths="1" weight="1.0">
+        <premove>POTATO SUGARBEET SUGARCANE</premove>
+        <variant id="up"   event="fcProcessorsUp"   backfire="fcProcessorsDown"/>
+        <variant id="down" event="fcProcessorsDown" backfire="fcProcessorsUp"/>
+    </forecast>
+
+    <!-- Not tied to a season. Two months of pre-move: a mill stocking its yard
+         before opening, or running its stock down before closing. -->
+    <forecast id="sawmill" kind="fixed" leadMonths="12" durationMonths="12" premoveMonths="2" weight="1.0">
+        <premove>WOOD</premove>
+        <variant id="open"  event="fcSawmillOpen"  backfire="fcSawmillOpenBackfire"/>
+        <variant id="close" event="fcSawmillClose" backfire="fcSawmillCloseBackfire"/>
+    </forecast>
+
+    <!-- Arrives in late winter, so corn for silage is still a choice. The effect
+         ends in April, when animals go back out to graze. A severe winter that
+         really happens also starts the existing Harsh Winter event (energy). -->
+    <forecast id="winterFeed" kind="window" arriveMonths="2 3 4" endMonth="4" weight="1.0">
+        <premove>SILAGE DRYGRASS_WINDROW GRASS_WINDROW STRAW FORAGE</premove>
+        <variant id="severe" event="fcFeedUp"   backfire="fcFeedDown" verdictMonth="11"
+                 premoveMonths="2" extraEvent="harshWinter"/>
+        <variant id="long"   event="fcFeedDown" backfire="fcFeedUp"   verdictMonth="10"
+                 premoveMonths="1"/>
+    </forecast>
+
+    <outcomeEvents>
+        <!-- Milling grains, price up: mills short of wheat and oats. -->
+        <event id="fcGrainsUp" subtype="fcGrains" category="forecast" type="win">
+            <affects>WHEAT OAT</affects>
+            <chains>
+                <chain from="WHEAT" to="FLOUR" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="FLOUR" to="BREAD" tier="2" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="FLOUR" to="CAKE" tier="3" lagMonths="2.0" passThrough="0.45"/>
+                <chain from="OAT" to="CEREAL" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="WHEAT" to="STRAW" tier="1" lagMonths="0.25" passThrough="0.80"/>
+                <chain from="WHEAT" to="DRYGRASS_WINDROW" tier="1" lagMonths="0.5" passThrough="0.45"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="1.08" priceFactorMax="1.12"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.18" priceFactorMax="1.26"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.32" priceFactorMax="1.42"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Milling grains, price down: a glut of wheat and oats. -->
+        <event id="fcGrainsDown" subtype="fcGrains" category="forecast" type="lose">
+            <affects>WHEAT OAT</affects>
+            <chains>
+                <chain from="WHEAT" to="FLOUR" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="FLOUR" to="BREAD" tier="2" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="FLOUR" to="CAKE" tier="3" lagMonths="2.0" passThrough="0.45"/>
+                <chain from="OAT" to="CEREAL" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="WHEAT" to="STRAW" tier="1" lagMonths="0.25" passThrough="0.80"/>
+                <chain from="WHEAT" to="DRYGRASS_WINDROW" tier="1" lagMonths="0.5" passThrough="0.45"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="0.90" priceFactorMax="0.93"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.80" priceFactorMax="0.85"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.70" priceFactorMax="0.76"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Vegetable oil, price up. -->
+        <event id="fcOilUp" subtype="fcOil" category="forecast" type="win">
+            <affects>CANOLA SUNFLOWER</affects>
+            <chains>
+                <chain from="CANOLA" to="CANOLA_OIL" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="SUNFLOWER" to="SUNFLOWER_OIL" tier="1" lagMonths="1.0" passThrough="0.60"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="1.08" priceFactorMax="1.12"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.18" priceFactorMax="1.26"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.32" priceFactorMax="1.42"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Vegetable oil, price down. -->
+        <event id="fcOilDown" subtype="fcOil" category="forecast" type="lose">
+            <affects>CANOLA SUNFLOWER</affects>
+            <chains>
+                <chain from="CANOLA" to="CANOLA_OIL" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="SUNFLOWER" to="SUNFLOWER_OIL" tier="1" lagMonths="1.0" passThrough="0.60"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="0.90" priceFactorMax="0.93"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.80" priceFactorMax="0.85"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.70" priceFactorMax="0.76"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Biofuel feedstock, price up. -->
+        <event id="fcBiofuelUp" subtype="fcBiofuel" category="forecast" type="win">
+            <affects>MAIZE SOYBEAN</affects>
+            <chains>
+                <chain from="MAIZE" to="SILAGE" tier="1" lagMonths="0.5" passThrough="0.50"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="1.08" priceFactorMax="1.12"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.18" priceFactorMax="1.26"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.32" priceFactorMax="1.42"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Biofuel feedstock, price down. -->
+        <event id="fcBiofuelDown" subtype="fcBiofuel" category="forecast" type="lose">
+            <affects>MAIZE SOYBEAN</affects>
+            <chains>
+                <chain from="MAIZE" to="SILAGE" tier="1" lagMonths="0.5" passThrough="0.50"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="0.90" priceFactorMax="0.93"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.80" priceFactorMax="0.85"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.70" priceFactorMax="0.76"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Food processors, price up. -->
+        <event id="fcProcessorsUp" subtype="fcProcessors" category="forecast" type="win">
+            <affects>POTATO SUGARBEET SUGARCANE</affects>
+            <chains>
+                <chain from="POTATO" to="POTATOCHIPS" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="POTATO" to="SOUPCANSPOTATO" tier="2" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="SUGARBEET" to="SUGAR" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="SUGAR" to="CHOCOLATE" tier="3" lagMonths="1.5" passThrough="0.45"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="1.08" priceFactorMax="1.12"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.18" priceFactorMax="1.26"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.32" priceFactorMax="1.42"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Food processors, price down. -->
+        <event id="fcProcessorsDown" subtype="fcProcessors" category="forecast" type="lose">
+            <affects>POTATO SUGARBEET SUGARCANE</affects>
+            <chains>
+                <chain from="POTATO" to="POTATOCHIPS" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="POTATO" to="SOUPCANSPOTATO" tier="2" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="SUGARBEET" to="SUGAR" tier="1" lagMonths="1.0" passThrough="0.60"/>
+                <chain from="SUGAR" to="CHOCOLATE" tier="3" lagMonths="1.5" passThrough="0.45"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="0.90" priceFactorMax="0.93"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.80" priceFactorMax="0.85"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.70" priceFactorMax="0.76"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- A new sawmill: timber up; sawn wood and wood chips down, and back to normal sooner. -->
+        <event id="fcSawmillOpen" subtype="fcSawmill" category="forecast" type="neutral">
+            <affects>WOOD</affects>
+            <opposite scale="0.50" durationShare="0.65">BOARDS PLANKS WOODBEAM PREFABWALL WOODCHIPS</opposite>
+            <severities>
+                <severity class="low"    priceFactorMin="1.10" priceFactorMax="1.15"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.25" priceFactorMax="1.35"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.45" priceFactorMax="1.55"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- New sawmill backfires: a flood of logs. Timber down, sawn wood down with it. -->
+        <event id="fcSawmillOpenBackfire" subtype="fcSawmill" category="forecast" type="lose">
+            <affects>WOOD</affects>
+            <chains>
+                <chain from="WOOD" to="BOARDS" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="PLANKS" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="WOODBEAM" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="PREFABWALL" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="WOODCHIPS" tier="1" lagMonths="0.25" passThrough="0.50"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="0.88" priceFactorMax="0.92"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.76" priceFactorMax="0.82"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.62" priceFactorMax="0.70"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- A sawmill closes: timber down; sawn wood and wood chips up, and back to normal sooner. -->
+        <event id="fcSawmillClose" subtype="fcSawmill" category="forecast" type="neutral">
+            <affects>WOOD</affects>
+            <opposite scale="0.50" durationShare="0.65">BOARDS PLANKS WOODBEAM PREFABWALL WOODCHIPS</opposite>
+            <severities>
+                <severity class="low"    priceFactorMin="0.88" priceFactorMax="0.92"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.76" priceFactorMax="0.82"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="2" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.62" priceFactorMax="0.70"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="3" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Sawmill closure backfires: felling stopped. Timber up, sawn wood up with it. -->
+        <event id="fcSawmillCloseBackfire" subtype="fcSawmill" category="forecast" type="win">
+            <affects>WOOD</affects>
+            <chains>
+                <chain from="WOOD" to="BOARDS" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="PLANKS" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="WOODBEAM" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="PREFABWALL" tier="1" lagMonths="0.25" passThrough="0.50"/>
+                <chain from="WOOD" to="WOODCHIPS" tier="1" lagMonths="0.25" passThrough="0.50"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="1.10" priceFactorMax="1.15"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.25" priceFactorMax="1.35"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.45" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.45" priceFactorMax="1.55"
+                          durationMonthsMin="12" durationMonthsMax="12"
+                          peakPosMin="0.12" peakPosMax="0.20" riseExpMin="0.6" riseExpMax="0.9"
+                          hold="0.50" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Winter feed short: feed up, corn pulled along. -->
+        <event id="fcFeedUp" subtype="fcFeed" category="forecast" type="neutral">
+            <affects>SILAGE DRYGRASS_WINDROW GRASS_WINDROW STRAW FORAGE</affects>
+            <chains>
+                <chain from="SILAGE" to="MAIZE" tier="1" lagMonths="0.25" passThrough="0.50"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="1.10" priceFactorMax="1.15"
+                          durationMonthsMin="5" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.60" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.30" priceFactorMax="1.40"
+                          durationMonthsMin="5" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.60" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.50" priceFactorMax="1.60"
+                          durationMonthsMin="5" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.65" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- Winter feed in surplus: feed down, corn with it. -->
+        <event id="fcFeedDown" subtype="fcFeed" category="forecast" type="neutral">
+            <affects>SILAGE DRYGRASS_WINDROW GRASS_WINDROW STRAW FORAGE</affects>
+            <chains>
+                <chain from="SILAGE" to="MAIZE" tier="1" lagMonths="0.25" passThrough="0.50"/>
+            </chains>
+            <severities>
+                <severity class="low"    priceFactorMin="0.90" priceFactorMax="0.93"
+                          durationMonthsMin="5" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.60" correctionMonths="1.0" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="0.75" priceFactorMax="0.80"
+                          durationMonthsMin="5" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.60" correctionMonths="1.0" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="0.62" priceFactorMax="0.68"
+                          durationMonthsMin="5" durationMonthsMax="5"
+                          peakPosMin="0.25" peakPosMax="0.40" riseExpMin="0.8" riseExpMax="1.2"
+                          hold="0.65" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+    </outcomeEvents>
+</forecasts>

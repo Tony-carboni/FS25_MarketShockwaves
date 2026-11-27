@@ -31,16 +31,23 @@ end
 
 --- @param priceModel table MSWPriceModel
 --- @param day number current game day
+--- @param openForecasts table|nil array of MSWActiveForecast. One in its
+---        pre-move is already moving prices, so its products are listed, with
+---        the forecast named as the cause.
 --- @return table { events = {...}, products = {...} }
-function MSWMarketView.build(priceModel, day)
+function MSWMarketView.build(priceModel, day, openForecasts)
     local view = { events = {}, products = {} }
     if priceModel == nil or day == nil then return view end
 
-    local byProduct = {}   -- name -> { name=, factors={}, eventIds={} }
+    local byProduct = {}   -- name -> { name=, factors={}, eventIds={}, forecastTitleKeys={} }
 
     for _, ev in ipairs(priceModel:getActiveEvents()) do
         if not ev:isExpired(day) then
             local titleKey, textKey = MSWMarketView.newsKeys(ev.eventId, ev.severity)
+            -- An event a forecast started was announced with the verdict
+            -- message, so that is its news item.
+            if ev.titleKey ~= nil then titleKey = ev.titleKey end
+            if ev.textKey ~= nil then textKey = ev.textKey end
             local entry = {
                 eventId = ev.eventId, severity = ev.severity, type = ev.type,
                 startDay = ev.startDay, titleKey = titleKey, textKey = textKey,
@@ -56,7 +63,8 @@ function MSWMarketView.build(priceModel, day)
                     if factor ~= 1.0 then
                         local p = byProduct[name]
                         if p == nil then
-                            p = { name = name, factors = {}, eventIds = {} }
+                            p = { name = name, factors = {}, eventIds = {},
+                                  forecastTitleKeys = {} }
                             byProduct[name] = p
                         end
                         p.factors[#p.factors + 1] = factor
@@ -64,6 +72,28 @@ function MSWMarketView.build(priceModel, day)
                             p.eventIds[#p.eventIds + 1] = ev.eventId
                             entry.moving = entry.moving + 1
                         end
+                    end
+                end
+            end
+        end
+    end
+
+    for _, forecast in ipairs(openForecasts or {}) do
+        local titleKey = MSWForecastDef.messageKeys(forecast.forecastId,
+                                                    forecast.variantId, "open")
+        for _, name in ipairs(forecast:getProducts()) do
+            if priceModel:getIndexFor(name) ~= nil then
+                local factor = forecast:getFactorFor(name, day)
+                if factor ~= 1.0 then
+                    local p = byProduct[name]
+                    if p == nil then
+                        p = { name = name, factors = {}, eventIds = {},
+                              forecastTitleKeys = {} }
+                        byProduct[name] = p
+                    end
+                    p.factors[#p.factors + 1] = factor
+                    if math.abs(factor - 1.0) >= MSWMarketView.MIN_ABS_CHANGE then
+                        p.forecastTitleKeys[#p.forecastTitleKeys + 1] = titleKey
                     end
                 end
             end
@@ -83,6 +113,7 @@ function MSWMarketView.build(priceModel, day)
         if math.abs(factor - 1.0) >= MSWMarketView.MIN_ABS_CHANGE then
             view.products[#view.products + 1] = {
                 name = p.name, factor = factor, eventIds = p.eventIds,
+                forecastTitleKeys = p.forecastTitleKeys,
             }
         end
     end

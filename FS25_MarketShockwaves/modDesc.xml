@@ -3,7 +3,7 @@
     <author>Tony_Carboni</author>
     <!-- Bumped per test build. The LOADED MODS line in log.txt reports this,
          which is the quickest way to tell a stale install from a real bug. -->
-    <version>0.9.1.1</version>
+    <version>0.9.2.0</version>
 
     <title>
         <en>Market Shockwaves</en>
@@ -15,8 +15,10 @@
 - Events roll daily within agronomically-grounded seasonal windows
 - Three severity tiers, each with its own ripple depth and price curve
 - Prices build, plateau and correct over months - never a flat modifier
-- Settings for frequency, intensity, duration, chain depth and event types,
-  on the mod's own page in the ESC menu
+- Forecasts: announced months ahead with stated confidence, never certain,
+  and timed by the map's own crop calendar so there is time to plan
+- Its own page in the ESC menu: what is moving prices, open forecasts, a
+  history of every message, and the settings
 
 WORK IN PROGRESS - singleplayer only for now.]]></en>
     </description>
@@ -38,8 +40,12 @@ WORK IN PROGRESS - singleplayer only for now.]]></en>
         <sourceFile filename="scripts/model/EventScheduler.lua"/>
         <sourceFile filename="scripts/model/PriceModel.lua"/>
         <sourceFile filename="scripts/model/MarketView.lua"/>
+        <sourceFile filename="scripts/model/CropCalendar.lua"/>
+        <sourceFile filename="scripts/model/Forecast.lua"/>
+        <sourceFile filename="scripts/model/History.lua"/>
         <sourceFile filename="scripts/game/EconomyAdapter.lua"/>
         <sourceFile filename="scripts/game/CalendarAdapter.lua"/>
+        <sourceFile filename="scripts/game/CropCalendarAdapter.lua"/>
         <sourceFile filename="scripts/game/SettingsAdapter.lua"/>
         <sourceFile filename="scripts/game/SettingsMenu.lua"/>
         <sourceFile filename="scripts/game/HubFrame.lua"/>

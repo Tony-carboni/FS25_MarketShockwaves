@@ -44,7 +44,31 @@ function MSWPriceModel.new(resolveIndex, logger)
     self.modifiers = {}      -- fillTypeIndex -> factor
     self.builtForDay = nil
     self.indexCache = {}     -- productName -> fillTypeIndex (resolved lazily)
+    self.extraSources = nil  -- see setExtraSources
     return self
+end
+
+--- Other things that move prices alongside the running events: today, the
+--- pre-move of an open forecast. Each source answers getProducts() and
+--- getFactorFor(name, day), like an event, and stacks by the same rule.
+--- @param provider function() -> array of sources
+function MSWPriceModel:setExtraSources(provider)
+    self.extraSources = provider
+    self.builtForDay = nil
+end
+
+--- Force the next rebuild, after something outside the event list changed.
+function MSWPriceModel:invalidate()
+    self.builtForDay = nil
+end
+
+--- Every price source: running events, then any extra sources.
+function MSWPriceModel:getSources()
+    if self.extraSources == nil then return self.activeEvents end
+    local all = {}
+    for _, ev in ipairs(self.activeEvents) do all[#all + 1] = ev end
+    for _, source in ipairs(self.extraSources() or {}) do all[#all + 1] = source end
+    return all
 end
 
 function MSWPriceModel:getIndexFor(name)
@@ -168,7 +192,7 @@ function MSWPriceModel:rebuild(currentDay)
     -- depend on how the effects rank against each other, so they cannot be
     -- folded in one event at a time.
     local perProduct = {}
-    for _, ev in ipairs(self.activeEvents) do
+    for _, ev in ipairs(self:getSources()) do
         for _, productName in ipairs(ev:getProducts()) do
             local factor = ev:getFactorFor(productName, currentDay)
             if factor ~= 1.0 then

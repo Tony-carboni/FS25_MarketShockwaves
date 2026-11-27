@@ -166,7 +166,7 @@ the page was built against other mods' working ESC pages, not a live run.
 If the log says `hub page unavailable`, the rows are instead at the bottom of
 **ESC → Settings → GAME SETTINGS**, under a `MARKET SHOCKWAVES` header.
 
-Either way there should be fifteen rows:
+Either way there should be sixteen rows:
 
 ```
 Enable Market Shockwaves        On
@@ -177,6 +177,7 @@ Event intensity                 100%
 Event duration                  100%
 Supply chain effects            Full production chains
 Show price markers              On
+Forecasts                       On
 Crop events                     On
 Greenhouse events               On
 Trade events                    On

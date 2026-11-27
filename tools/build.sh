@@ -30,6 +30,7 @@ PY
 
 echo "== config validation =="
 python3 tools/validate_config.py
+python3 tools/validate_forecasts.py
 
 # The hand-written docs quote facts that also live in the config - chain values,
 # month weights, product lists, counts. This fails if any of them has drifted.
@@ -46,6 +47,7 @@ python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt
 echo "== model tests =="
 lua tools/test_model.lua > /dev/null && echo "  all model tests passed"
 lua tools/test_settings_menu.lua > /dev/null && echo "  all settings menu tests passed"
+lua tools/test_forecast.lua > /dev/null && echo "  all forecast tests passed"
 
 echo "== packaging =="
 rm -rf "$OUT"; mkdir -p "$OUT"

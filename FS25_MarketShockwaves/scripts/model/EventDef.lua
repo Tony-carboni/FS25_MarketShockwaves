@@ -61,8 +61,41 @@ function MSWEventDef.loadAll(path, log)
     while true do
         local key = ("%s.events.event(%d)"):format(root, i)
         if not hasXMLProperty(xml, key) then break end
+        config.events[#config.events + 1] = MSWEventDef.readEvent(xml, key, i, config, log, false)
+        i = i + 1
+    end
 
+    delete(xml)
+
+    log:info(("EventDef: loaded %d events, eventsPerYear=%.2f")
+        :format(#config.events, config.eventsPerYear))
+    return config
+end
+
+--- Read the events a forecast can start (config/forecasts.xml, under
+--- `<outcomeEvents>`). Same schema as a random event, but the scheduler never
+--- rolls them: they have no weight and no season, and only a forecast's verdict
+--- starts one. Kept in their own list so nothing that walks `config.events`
+--- (the scheduler, the diagnostics, the documentation tools) ever sees them.
+function MSWEventDef.loadForecastEvents(xml, root, config, log)
+    config.forecastEvents = {}
+    local i = 0
+    while true do
+        local key = ("%s.outcomeEvents.event(%d)"):format(root, i)
+        if not hasXMLProperty(xml, key) then break end
+        config.forecastEvents[#config.forecastEvents + 1] =
+            MSWEventDef.readEvent(xml, key, i, config, log, true)
+        i = i + 1
+    end
+    return config.forecastEvents
+end
+
+--- Read one `<event>` element.
+--- @param forecastOnly boolean true for an event only a forecast may start
+function MSWEventDef.readEvent(xml, key, i, config, log, forecastOnly)
+    do
         local def = setmetatable({}, MSWEventDef_mt)
+        def.forecastOnly = forecastOnly == true
         def.id         = getXMLString(xml, key .. "#id") or ("event" .. i)
         def.type       = getXMLString(xml, key .. "#type") or "neutral"
         -- Which settings-menu group switches this event on and off.
@@ -74,6 +107,7 @@ function MSWEventDef.loadAll(path, log)
         -- self-overlap rule that already applied.
         def.subtype    = getXMLString(xml, key .. "#subtype") or def.id
         def.baseWeight = getXMLFloat(xml, key .. "#baseWeight") or 1.0
+        if forecastOnly then def.baseWeight = 0 end
         def.affects    = splitProducts(getXMLString(xml, key .. ".affects"))
         -- Products this event moves the OTHER way, at `scale` times the swing.
         -- A consumer trend has a winner and a loser: shoppers who fill their
@@ -82,6 +116,10 @@ function MSWEventDef.loadAll(path, log)
         -- keeps the adverse side at the usual downtuned strength.
         def.opposite      = splitProducts(getXMLString(xml, key .. ".opposite"))
         def.oppositeScale = getXMLFloat(xml, key .. ".opposite#scale") or 0.5
+        -- Share of the event's length the opposite side lasts. Below 1 it
+        -- recovers sooner than the main side: a new sawmill keeps timber dear
+        -- for a year, but its price war on sawn wood burns out earlier.
+        def.oppositeDurationShare = getXMLFloat(xml, key .. ".opposite#durationShare") or 1.0
 
         -- ---- month weights, normalised to shares -------------------------
         def.monthShare = {}
@@ -96,7 +134,7 @@ function MSWEventDef.loadAll(path, log)
         for m = 1, 12 do
             def.monthShare[m] = (total > 0) and (raw[m] / total) or 0
         end
-        if total <= 0 then
+        if total <= 0 and not forecastOnly then
             log:warn(("EventDef: event '%s' has no positive month weights; it can never fire")
                 :format(def.id))
         end
@@ -161,20 +199,16 @@ function MSWEventDef.loadAll(path, log)
             s = s + 1
         end
 
-        config.events[#config.events + 1] = def
-        i = i + 1
+        return def
     end
-
-    delete(xml)
-
-    log:info(("EventDef: loaded %d events, eventsPerYear=%.2f")
-        :format(#config.events, config.eventsPerYear))
-    return config
 end
 
---- Find a definition by id.
+--- Find a definition by id: a random event, or one only a forecast starts.
 function MSWEventDef.findById(config, id)
     for _, def in ipairs(config.events) do
+        if def.id == id then return def end
+    end
+    for _, def in ipairs(config.forecastEvents or {}) do
         if def.id == id then return def end
     end
     return nil

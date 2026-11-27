@@ -275,5 +275,211 @@
 
         <text name="msw_setting_catConsumer" text="Consumer events"/>
         <text name="msw_tooltip_catConsumer" text="Shifts in what shoppers buy. A pandemic sends them to soups, cans and preserves and away from fresh and premium food; a fresh-food fashion does the reverse. Each has a winner and a loser, so these matter to canneries, greenhouses, dairies, olive groves and vineyards alike."/>
+
+        <!-- ================= FORECASTS (speculation) =================
+             Keys follow msw_fc_<forecastId>_<variantId>_<stage>_title / _text,
+             stage = open, or the outcome: asForecast, stronger, milder,
+             wrongReason, backfire. The %s in an opening text is replaced by
+             one of the msw_fc_confidence_* lines. No sizes, no exact lengths. -->
+        <!-- millingGrains / up -->
+        <text name="msw_fc_millingGrains_up_open_title" text="Mills Eye Next Year's Grain"/>
+        <text name="msw_fc_millingGrains_up_open_text" text="Flour mills and cereal makers report that their reserves are running thin, and analysts expect them to compete hard for wheat and oats by next harvest. If that holds, both will fetch noticeably more than they do today. %s Wheat goes in this autumn, and oats follow in spring."/>
+        <text name="msw_fc_millingGrains_up_asForecast_title" text="Mills Bid Up Grain"/>
+        <text name="msw_fc_millingGrains_up_asForecast_text" text="The analysts called it. Reserves have run down just as predicted, and buyers are paying well for wheat and oats from the new harvest. Prices are expected to stay above last year's until the next crop comes in."/>
+        <text name="msw_fc_millingGrains_up_stronger_title" text="Grain Scramble"/>
+        <text name="msw_fc_millingGrains_up_stronger_text" text="Reserves turned out to be even thinner than feared. Mills and cereal makers are outbidding each other for every load, and flour is getting dearer with it. Wheat and oat prices are expected to stay well above last year's until the next harvest."/>
+        <text name="msw_fc_millingGrains_up_milder_title" text="Grain Firms, Barely"/>
+        <text name="msw_fc_millingGrains_up_milder_text" text="The shortage was real, but smaller than the forecasts made it sound. Buyers are paying a little more for wheat and oats, not the premium that was promised. Prices are expected to stay slightly above last year's for the season."/>
+        <text name="msw_fc_millingGrains_up_wrongReason_title" text="Short Crop Lifts Grain"/>
+        <text name="msw_fc_millingGrains_up_wrongReason_text" text="The experts were right about the price and wrong about the reason. The extra demand never came, but many growers doubted the forecast and sowed less wheat and oats. The short crop is lifting prices anyway, and they are expected to stay up until the next harvest."/>
+        <text name="msw_fc_millingGrains_up_backfire_title" text="Grain Glut"/>
+        <text name="msw_fc_millingGrains_up_backfire_text" text="Even experts can be wrong, it seems. Everyone planted for the grain boom, and harvests are fatter than ever. Silos are overflowing, and mills are naming their price. Instead of rising, wheat and oat prices are expected to stay lower than last year for a while to come."/>
+        <!-- millingGrains / down -->
+        <text name="msw_fc_millingGrains_down_open_title" text="Mills Sitting on Full Silos"/>
+        <text name="msw_fc_millingGrains_down_open_text" text="Flour mills and cereal makers report comfortable reserves, and analysts expect them to buy little wheat or oats by next harvest. If that holds, both will be harder to sell and worth less than they are today. %s Wheat goes in this autumn, and oats follow in spring."/>
+        <text name="msw_fc_millingGrains_down_asForecast_title" text="Mills Turn Grain Away"/>
+        <text name="msw_fc_millingGrains_down_asForecast_text" text="The mills are as well stocked as predicted, and they are in no hurry to buy from the new harvest. Wheat and oats are hard to place and prices are down. They are expected to stay below last year's until the next crop comes in."/>
+        <text name="msw_fc_millingGrains_down_stronger_title" text="Grain Nobody Wants"/>
+        <text name="msw_fc_millingGrains_down_stronger_text" text="Reserves were even larger than reported. Buyers are scarce, and wheat and oats are selling for whatever they can get. Prices are expected to stay well below last year's until the next harvest."/>
+        <text name="msw_fc_millingGrains_down_milder_title" text="Grain Slips a Little"/>
+        <text name="msw_fc_millingGrains_down_milder_text" text="The mills are buying less than usual, but not by much. Wheat and oat prices have eased rather than fallen, and the season looks only slightly worse than last year's."/>
+        <text name="msw_fc_millingGrains_down_wrongReason_title" text="Big Crop Sinks Grain"/>
+        <text name="msw_fc_millingGrains_down_wrongReason_text" text="The experts were right about the price and wrong about the reason. The mills needed grain after all, but growers who doubted the warning sowed plenty. The large crop is pushing wheat and oat prices down anyway, and they are expected to stay low until the next harvest."/>
+        <text name="msw_fc_millingGrains_down_backfire_title" text="Grain Runs Short"/>
+        <text name="msw_fc_millingGrains_down_backfire_text" text="Even experts can be wrong, it seems. Growers heeded the warning and switched to other crops, and far too little wheat and oats were sown. Mills are short and paying up for what there is. Instead of falling, prices are expected to stay higher than last year for a while to come."/>
+        <!-- vegetableOil / up -->
+        <text name="msw_fc_vegetableOil_up_open_title" text="Oil Mills Call for Seed"/>
+        <text name="msw_fc_vegetableOil_up_open_text" text="Oil mills expect strong demand for vegetable oil over the coming year and say they will need more canola and sunflower seed than growers usually deliver. If that holds, both crops will fetch noticeably more than they do today. %s Canola sowing closes in early autumn, and sunflowers follow in spring."/>
+        <text name="msw_fc_vegetableOil_up_asForecast_title" text="Oil Mills Pay Up"/>
+        <text name="msw_fc_vegetableOil_up_asForecast_text" text="Demand for vegetable oil is as strong as predicted. Mills are paying well for canola and sunflower seed, and the oils are dearer too. Prices are expected to stay above last year's until the next crop comes in."/>
+        <text name="msw_fc_vegetableOil_up_stronger_title" text="Oilseed Rush"/>
+        <text name="msw_fc_vegetableOil_up_stronger_text" text="Demand for vegetable oil has outrun every estimate. Mills are short of seed and bidding against each other for each load. Canola and sunflower prices are expected to stay well above last year's until the next harvest."/>
+        <text name="msw_fc_vegetableOil_up_milder_title" text="Oilseeds Edge Up"/>
+        <text name="msw_fc_vegetableOil_up_milder_text" text="Demand for vegetable oil is up, but only modestly. Mills are paying a little more for canola and sunflower seed, not the premium that was promised. Prices are expected to stay slightly above last year's for the season."/>
+        <text name="msw_fc_vegetableOil_up_wrongReason_title" text="Thin Crops, Firm Prices"/>
+        <text name="msw_fc_vegetableOil_up_wrongReason_text" text="The experts were right about the price and wrong about the reason. The oil boom never came, but many growers doubted it and sowed less canola and fewer sunflowers. The small crops are holding prices up, and they are expected to stay firm until the next harvest."/>
+        <text name="msw_fc_vegetableOil_up_backfire_title" text="Oilseeds to the Horizon"/>
+        <text name="msw_fc_vegetableOil_up_backfire_text" text="Even experts can be wrong, it seems. Growers planted canola and sunflowers wall to wall for the promised boom, and the harvests are enormous. Mills have more seed than they can press. Instead of rising, prices are expected to stay lower than last year for a while to come."/>
+        <!-- vegetableOil / down -->
+        <text name="msw_fc_vegetableOil_down_open_title" text="Cheap Oil on the Horizon"/>
+        <text name="msw_fc_vegetableOil_down_open_text" text="Traders expect cheap imported vegetable oil to reach the market over the coming year. If that holds, oil mills will pay less for seed, and canola and sunflowers will be worth less than they are today. %s Canola sowing closes in early autumn, and sunflowers follow in spring."/>
+        <text name="msw_fc_vegetableOil_down_asForecast_title" text="Imports Undercut Oilseeds"/>
+        <text name="msw_fc_vegetableOil_down_asForecast_text" text="Cheap vegetable oil has arrived as predicted, and home-pressed oil is struggling to compete. Mills are paying less for canola and sunflower seed. Prices are expected to stay below last year's until the next crop comes in."/>
+        <text name="msw_fc_vegetableOil_down_stronger_title" text="Oil Market Swamped"/>
+        <text name="msw_fc_vegetableOil_down_stronger_text" text="Far more imported oil has landed than anyone expected. Mills are cutting back, and canola and sunflower prices have dropped hard. They are expected to stay well below last year's until the next harvest."/>
+        <text name="msw_fc_vegetableOil_down_milder_title" text="Oilseeds Dip"/>
+        <text name="msw_fc_vegetableOil_down_milder_text" text="Some cheap oil has arrived, but less than feared. Mills are paying slightly less for canola and sunflower seed, and the season looks only a little worse than last year's."/>
+        <text name="msw_fc_vegetableOil_down_wrongReason_title" text="Big Crops Do the Damage"/>
+        <text name="msw_fc_vegetableOil_down_wrongReason_text" text="The experts were right about the price and wrong about the reason. The cheap imports never came, but growers who shrugged off the warning planted canola and sunflowers heavily. The large crops are dragging prices down, and they are expected to stay low until the next harvest."/>
+        <text name="msw_fc_vegetableOil_down_backfire_title" text="Mills Short of Seed"/>
+        <text name="msw_fc_vegetableOil_down_backfire_text" text="Even experts can be wrong, it seems. Growers turned away from canola and sunflowers, and far too little was planted. Mills are paying more just to keep their presses running. Instead of falling, prices are expected to stay higher than last year for a while to come."/>
+        <!-- biofuel / up -->
+        <text name="msw_fc_biofuel_up_open_title" text="Blending Mandate Up for a Vote"/>
+        <text name="msw_fc_biofuel_up_open_text" text="Lawmakers are expected to raise the biofuel blending mandate later this year. Ethanol and biodiesel makers would need far more feedstock, and corn and soybean would fetch noticeably more than they do today. %s Growers have until spring sowing to decide."/>
+        <text name="msw_fc_biofuel_up_asForecast_title" text="Mandate Raised"/>
+        <text name="msw_fc_biofuel_up_asForecast_text" text="The vote passed as predicted. Fuel makers need more corn and soybean, and they are paying for it. Prices for both are expected to stay above last year's until the next crop comes in."/>
+        <text name="msw_fc_biofuel_up_stronger_title" text="Mandate Goes Further"/>
+        <text name="msw_fc_biofuel_up_stronger_text" text="Lawmakers raised the mandate well beyond what was proposed. Fuel makers are scrambling for feedstock and bidding hard for corn and soybean. Prices are expected to stay well above last year's until the next harvest."/>
+        <text name="msw_fc_biofuel_up_milder_title" text="A Modest Mandate"/>
+        <text name="msw_fc_biofuel_up_milder_text" text="The mandate was raised, but only slightly. Fuel makers are buying a little more, and corn and soybean are modestly dearer. Prices are expected to stay slightly above last year's for the season."/>
+        <text name="msw_fc_biofuel_up_wrongReason_title" text="Vote Fails, Prices Rise Anyway"/>
+        <text name="msw_fc_biofuel_up_wrongReason_text" text="The experts were right about the price and wrong about the reason. The mandate was voted down, but many growers had bet against it and planted less. The short crops are lifting corn and soybean regardless, and prices are expected to stay up until the next harvest."/>
+        <text name="msw_fc_biofuel_up_backfire_title" text="Too Much Fuel Crop"/>
+        <text name="msw_fc_biofuel_up_backfire_text" text="Even experts can be wrong, it seems. Growers planted corn and soybean for a boom, and there is far more than the fuel makers can use. Buyers are picking and choosing. Instead of rising, prices are expected to stay lower than last year for a while to come."/>
+        <!-- biofuel / down -->
+        <text name="msw_fc_biofuel_down_open_title" text="Biofuel Mandate Under Fire"/>
+        <text name="msw_fc_biofuel_down_open_text" text="Lawmakers are expected to cut the biofuel blending mandate later this year. Ethanol and biodiesel makers would need less feedstock, and corn and soybean would be worth less than they are today. %s Growers have until spring sowing to decide."/>
+        <text name="msw_fc_biofuel_down_asForecast_title" text="Mandate Cut"/>
+        <text name="msw_fc_biofuel_down_asForecast_text" text="The vote passed as predicted. Fuel makers need less corn and soybean, and prices for both are down. They are expected to stay below last year's until the next crop comes in."/>
+        <text name="msw_fc_biofuel_down_stronger_title" text="Mandate Scrapped"/>
+        <text name="msw_fc_biofuel_down_stronger_text" text="Lawmakers went further than proposed and dropped the mandate altogether. Fuel makers have all but stopped buying. Corn and soybean prices are expected to stay well below last year's until the next harvest."/>
+        <text name="msw_fc_biofuel_down_milder_title" text="A Small Trim"/>
+        <text name="msw_fc_biofuel_down_milder_text" text="The mandate was cut, but only slightly. Fuel makers are buying a little less, and corn and soybean have eased. The season looks only slightly worse than last year's."/>
+        <text name="msw_fc_biofuel_down_wrongReason_title" text="Mandate Survives, Prices Fall Anyway"/>
+        <text name="msw_fc_biofuel_down_wrongReason_text" text="The experts were right about the price and wrong about the reason. The cut was voted down, but growers had bet on that and planted heavily. The large crops are weighing on corn and soybean, and prices are expected to stay low until the next harvest."/>
+        <text name="msw_fc_biofuel_down_backfire_title" text="Fuel Makers Short of Crop"/>
+        <text name="msw_fc_biofuel_down_backfire_text" text="Even experts can be wrong, it seems. Growers walked away from corn and soybean, and far too little was planted. Fuel makers still have tanks to fill, and they are paying more to fill them. Instead of falling, prices are expected to stay higher than last year for a while to come."/>
+        <!-- foodProcessors / up -->
+        <text name="msw_fc_foodProcessors_up_open_title" text="Food Processors Plan Bigger Intake"/>
+        <text name="msw_fc_foodProcessors_up_open_text" text="Food processors are expanding and expect to need more potatoes and sugar crops after the summer. If the new lines open on time, potatoes, sugar beet and sugarcane will fetch noticeably more than they do today. %s Growers have until spring planting to decide."/>
+        <text name="msw_fc_foodProcessors_up_asForecast_title" text="New Lines Running"/>
+        <text name="msw_fc_foodProcessors_up_asForecast_text" text="The expanded plants are open and taking more potatoes, sugar beet and sugarcane, just as planned. Growers are being paid well, and chips and sugar are dearer too. Prices are expected to stay above last year's until the next crop comes in."/>
+        <text name="msw_fc_foodProcessors_up_stronger_title" text="Processors Can't Get Enough"/>
+        <text name="msw_fc_foodProcessors_up_stronger_text" text="The new plants are larger than announced, and processors are buying every load of potatoes, sugar beet and sugarcane on offer. Prices are expected to stay well above last year's until the next harvest."/>
+        <text name="msw_fc_foodProcessors_up_milder_title" text="A Smaller Expansion"/>
+        <text name="msw_fc_foodProcessors_up_milder_text" text="The processors scaled their plans down before opening. They are buying a little more than before, and potatoes, sugar beet and sugarcane are slightly dearer. Prices are expected to stay that way for the season."/>
+        <text name="msw_fc_foodProcessors_up_wrongReason_title" text="Small Crops, Fair Prices"/>
+        <text name="msw_fc_foodProcessors_up_wrongReason_text" text="The experts were right about the price and wrong about the reason. The expansion was shelved, but growers doubted it and planted fewer potatoes, less sugar beet and less sugarcane. The small crops are keeping prices up, and they are expected to stay firm until the next harvest."/>
+        <text name="msw_fc_foodProcessors_up_backfire_title" text="More Than the Factories Can Take"/>
+        <text name="msw_fc_foodProcessors_up_backfire_text" text="So much for the forecasts. Growers planted for the new plants in a big way, and there are far more potatoes, sugar beet and sugarcane than they can process. Stores are full and buyers are few. Instead of rising, prices are expected to stay lower than last year for a while to come."/>
+        <!-- foodProcessors / down -->
+        <text name="msw_fc_foodProcessors_down_open_title" text="Food Processors Scale Back"/>
+        <text name="msw_fc_foodProcessors_down_open_text" text="Food processors are cutting their intake and expect to need fewer potatoes and sugar crops after the summer. If that holds, potatoes, sugar beet and sugarcane will be harder to sell and worth less than they are today. %s Growers have until spring planting to decide."/>
+        <text name="msw_fc_foodProcessors_down_asForecast_title" text="Fewer Contracts Signed"/>
+        <text name="msw_fc_foodProcessors_down_asForecast_text" text="The processors have cut their intake, as predicted. Potatoes, sugar beet and sugarcane are harder to place and prices are down. They are expected to stay below last year's until the next crop comes in."/>
+        <text name="msw_fc_foodProcessors_down_stronger_title" text="Factories Close Lines"/>
+        <text name="msw_fc_foodProcessors_down_stronger_text" text="Processors have shut down whole production lines. Growers are struggling to place potatoes, sugar beet and sugarcane at any price. Prices are expected to stay well below last year's until the next harvest."/>
+        <text name="msw_fc_foodProcessors_down_milder_title" text="A Light Cutback"/>
+        <text name="msw_fc_foodProcessors_down_milder_text" text="The processors trimmed their intake only slightly. Prices for potatoes, sugar beet and sugarcane have eased a little, and the season looks only slightly worse than last year's."/>
+        <text name="msw_fc_foodProcessors_down_wrongReason_title" text="Too Much Crop Anyway"/>
+        <text name="msw_fc_foodProcessors_down_wrongReason_text" text="The experts were right about the price and wrong about the reason. The processors kept buying as before, but growers ignored the warning and planted potatoes, sugar beet and sugarcane heavily. The large crops are pulling prices down, and they are expected to stay low until the next harvest."/>
+        <text name="msw_fc_foodProcessors_down_backfire_title" text="Processors Short of Crop"/>
+        <text name="msw_fc_foodProcessors_down_backfire_text" text="So much for the forecasts. Growers switched away from potatoes, sugar beet and sugarcane, and far too little was planted. Even the reduced plants cannot fill their orders. Instead of falling, prices are expected to stay higher than last year for a while to come."/>
+        <!-- sawmill / open -->
+        <text name="msw_fc_sawmill_open_open_title" text="New Sawmill Licensed"/>
+        <text name="msw_fc_sawmill_open_open_text" text="A large sawmill has received its licence and is due to open in about a year. Analysts expect it to bid hard for timber, pushing log prices up significantly. They also expect it to sell boards, planks, beams and wood chips cheaply while it fights for its place in the market. %s"/>
+        <text name="msw_fc_sawmill_open_asForecast_title" text="Sawmill Opens Its Gates"/>
+        <text name="msw_fc_sawmill_open_asForecast_text" text="The new mill is running and bidding hard for logs, as predicted. Sawn wood and wood chips are piling up on the market as it undercuts its rivals. Timber is expected to stay dear and sawn wood cheap until the market settles."/>
+        <text name="msw_fc_sawmill_open_stronger_title" text="Timber Bidding War"/>
+        <text name="msw_fc_sawmill_open_stronger_text" text="The mill opened at full capacity, and its rivals are fighting back. Logs are fetching prices nobody expected, and sawn wood and wood chips are being sold off cheap. The price war is expected to last a good while."/>
+        <text name="msw_fc_sawmill_open_milder_title" text="A Quiet Opening"/>
+        <text name="msw_fc_sawmill_open_milder_text" text="The mill has opened with only half its lines running. Timber is somewhat dearer, and sawn wood and wood chips somewhat cheaper, well short of what was forecast. The effect is expected to fade as the market adjusts."/>
+        <text name="msw_fc_sawmill_open_wrongReason_title" text="Mill Delayed, Timber Climbs Anyway"/>
+        <text name="msw_fc_sawmill_open_wrongReason_text" text="The experts were right about the price and wrong about the reason. The opening has slipped, but rival mills had already bought up timber to keep it from the newcomer. Logs are dear all the same, and those rivals are selling off sawn wood and wood chips to pay for them. Timber is expected to stay dear for a while."/>
+        <text name="msw_fc_sawmill_open_backfire_title" text="Log Yards Overflowing"/>
+        <text name="msw_fc_sawmill_open_backfire_text" text="The experts got this one wrong. Every forest owner held timber back for opening day, and the market is flooded with logs. The new mill is turning cheap logs into even cheaper planks and wood chips. Instead of rising, timber prices are expected to stay low for a while to come."/>
+        <!-- sawmill / close -->
+        <text name="msw_fc_sawmill_close_open_title" text="Big Sawmill to Close"/>
+        <text name="msw_fc_sawmill_close_open_text" text="One of the region's largest sawmills has announced that it will shut down in about a year. Analysts expect far fewer buyers for timber, pushing log prices down significantly. They also expect boards, planks, beams and wood chips to become scarcer and dearer once its output is gone. %s"/>
+        <text name="msw_fc_sawmill_close_asForecast_title" text="Sawmill Shuts Its Gates"/>
+        <text name="msw_fc_sawmill_close_asForecast_text" text="The mill has closed on schedule. Forest owners have lost their biggest buyer and logs are cheap, while sawn wood and wood chips are harder to find and cost more. Timber is expected to stay cheap and sawn wood dear until the market settles."/>
+        <text name="msw_fc_sawmill_close_stronger_title" text="Timber With Nowhere to Go"/>
+        <text name="msw_fc_sawmill_close_stronger_text" text="The closure hit harder than expected, and a second mill has cut its hours. Logs are piling up unsold, and builders are paying well over the odds for sawn wood and wood chips. The squeeze is expected to last a good while."/>
+        <text name="msw_fc_sawmill_close_milder_title" text="A Slow Wind-Down"/>
+        <text name="msw_fc_sawmill_close_milder_text" text="The mill is closing in stages and still running some of its lines. Timber is somewhat cheaper, and sawn wood and wood chips somewhat dearer, well short of what was forecast. The effect is expected to fade as the market adjusts."/>
+        <text name="msw_fc_sawmill_close_wrongReason_title" text="Mill Saved, Timber Falls Anyway"/>
+        <text name="msw_fc_sawmill_close_wrongReason_text" text="The experts were right about the price and wrong about the reason. A buyer stepped in and the mill stays open, but forest owners had rushed to fell and sell before the closure. The market is full of logs, and the mill, short of orders, is sawing less, so sawn wood and wood chips are dearer. Timber is expected to stay cheap for a while."/>
+        <text name="msw_fc_sawmill_close_backfire_title" text="Nobody Felled a Tree"/>
+        <text name="msw_fc_sawmill_close_backfire_text" text="The experts got this one wrong. Forest owners stopped felling ahead of the closure, and the remaining mills cannot find enough logs. Timber is scarce, and sawn wood and wood chips are dearer still. Instead of falling, timber prices are expected to stay high for a while to come."/>
+        <!-- winterFeed / severe -->
+        <text name="msw_fc_winterFeed_severe_open_title" text="Hard Winter Forecast"/>
+        <text name="msw_fc_winterFeed_severe_open_text" text="Long-range forecasters warn of a long, hard winter. Animals would be housed early and fed from stock for months, and analysts expect prices for silage, hay, grass, straw and mixed rations to rise significantly, with energy following. %s There is a growing season left to prepare."/>
+        <text name="msw_fc_winterFeed_severe_asForecast_title" text="Winter Bites"/>
+        <text name="msw_fc_winterFeed_severe_asForecast_text" text="The forecasters were right. Animals are housed early, stocks of silage, hay and straw are draining fast, and energy costs are climbing with the cold. Feed and energy are expected to stay dear until the animals are back on grass."/>
+        <text name="msw_fc_winterFeed_severe_stronger_title" text="The Long Freeze"/>
+        <text name="msw_fc_winterFeed_severe_stronger_text" text="This winter is harder than anyone predicted. Silage, hay and straw are scarce, heating and fuel are stretched, and there is no thaw in sight. Prices are expected to stay very high until spring."/>
+        <text name="msw_fc_winterFeed_severe_milder_title" text="Cold, But No Catastrophe"/>
+        <text name="msw_fc_winterFeed_severe_milder_text" text="Winter has come, though not the one that was promised. Silage, hay, straw and energy are a little dearer than usual, and are expected to ease as soon as the weather turns."/>
+        <text name="msw_fc_winterFeed_severe_wrongReason_title" text="An Ordinary Winter, Empty Barns"/>
+        <text name="msw_fc_winterFeed_severe_wrongReason_text" text="The experts were right about the price and wrong about the reason. The great freeze never came, but too few farmers stocked up, and even an ordinary winter is running silage, hay and straw short. Feed is expected to stay dear until spring. Energy is unaffected."/>
+        <text name="msw_fc_winterFeed_severe_backfire_title" text="Full Silos, Mild Skies"/>
+        <text name="msw_fc_winterFeed_severe_backfire_text" text="Even experts can be wrong, it seems. Everyone filled their barns for the freeze, and then the winter turned out mild. Nobody needs to buy silage, hay or straw, and sellers are stuck with their stock. Instead of rising, feed prices are expected to stay low until spring."/>
+        <!-- winterFeed / long -->
+        <text name="msw_fc_winterFeed_long_open_title" text="Long Grazing Season Forecast"/>
+        <text name="msw_fc_winterFeed_long_open_text" text="Long-range forecasters expect mild weather to keep animals on pasture late into the year. Winter stocks would barely be touched, and analysts expect prices for silage, hay, grass, straw and mixed rations to fall. %s There is a growing season left to plan around it."/>
+        <text name="msw_fc_winterFeed_long_asForecast_title" text="Still Out to Pasture"/>
+        <text name="msw_fc_winterFeed_long_asForecast_text" text="Grazing has run late into the year, as forecast. Winter stocks are barely touched, and silage, hay and straw are cheap. Prices are expected to stay low until the new season begins."/>
+        <text name="msw_fc_winterFeed_long_stronger_title" text="The Summer That Wouldn't End"/>
+        <text name="msw_fc_winterFeed_long_stronger_text" text="Animals are still grazing long after they would normally be housed. Sellers of silage, hay and straw can hardly find a buyer, and prices are expected to stay very low until spring."/>
+        <text name="msw_fc_winterFeed_long_milder_title" text="A Few Extra Weeks"/>
+        <text name="msw_fc_winterFeed_long_milder_text" text="The season ran a little longer than usual. Silage, hay and straw are slightly cheaper, well short of what the forecasts suggested, and are expected to recover before long."/>
+        <text name="msw_fc_winterFeed_long_wrongReason_title" text="Normal Autumn, Too Much Feed"/>
+        <text name="msw_fc_winterFeed_long_wrongReason_text" text="The experts were right about the price and wrong about the reason. The long summer never came, but farmers who doubted the forecast made silage, hay and straw as usual, and there is more than the market needs. Feed is expected to stay cheap until spring."/>
+        <text name="msw_fc_winterFeed_long_backfire_title" text="Caught Short"/>
+        <text name="msw_fc_winterFeed_long_backfire_text" text="Even experts can be wrong, it seems. Farmers cut back on feed for a summer that ended right on time. Barns are half empty, and buyers are competing for what silage, hay and straw is left. Instead of falling, feed prices are expected to stay high until spring."/>
+
+        <!-- Forecast wording, the hub's Forecasts and History tabs, and the setting -->
+        <text name="msw_fc_confidence_70" text="Experts are still debating, but the majority seems to agree."/>
+        <text name="msw_fc_confidence_80" text="Experts largely agree."/>
+        <text name="msw_fc_confidence_90" text="Experts are unanimous."/>
+        <text name="msw_fc_tip_title" text="Market Speculation"/>
+        <text name="msw_fc_tip_p1" text="Not every shock arrives unannounced. Sometimes the market starts talking first."/>
+        <text name="msw_fc_tip_p2" text="Suppliers, analysts and forecasters will tell you what they expect, and how sure they are. That is a forecast, not a promise. It may come true. It may hit harder or softer than anyone predicted, or turn the other way when everyone bets on the same outcome."/>
+        <text name="msw_fc_tip_p3" text="Planting, holding or selling on a forecast is a gamble. Get it right and you are ahead of the market. Get it wrong and you pay for it. Read the odds, and decide how much you are willing to stake."/>
+        <text name="msw_fc_tip_p4" text="Open forecasts are listed on the Market Shockwaves page in the menu."/>
+        <text name="msw_hub_tab_forecasts" text="Forecasts"/>
+        <text name="msw_hub_tab_history" text="History"/>
+        <text name="msw_hub_no_forecasts" text="No forecasts are open. When analysts expect a change, it will be listed here."/>
+        <text name="msw_hub_no_history" text="Nothing has been announced yet."/>
+        <text name="msw_hub_announced" text="Announced: %s"/>
+        <text name="msw_hub_moved_by_forecast" text="Forecast: %s"/>
+        <text name="msw_hub_date" text="%s, year %d"/>
+        <text name="msw_hub_kind_event" text="Event"/>
+        <text name="msw_hub_kind_forecast" text="Forecast"/>
+        <text name="msw_hub_kind_verdict" text="Verdict"/>
+        <text name="msw_hub_kind_info" text="Info"/>
+        <text name="msw_hub_status_open" text="Open"/>
+        <text name="msw_hub_status_close" text="Verdict close"/>
+        <text name="msw_hub_status_running" text="Running"/>
+        <text name="msw_hub_status_ended" text="Ended"/>
+        <text name="msw_hub_status_asForecast" text="Came true"/>
+        <text name="msw_hub_status_stronger" text="Came true, stronger"/>
+        <text name="msw_hub_status_milder" text="Came true, milder"/>
+        <text name="msw_hub_status_wrongReason" text="True, other cause"/>
+        <text name="msw_hub_status_backfire" text="Backfired"/>
+        <text name="msw_setting_forecasts" text="Forecasts"/>
+        <text name="msw_tooltip_forecasts" text="Market changes announced months ahead by suppliers, analysts and forecasters, with a stated confidence. They are timed by this map's crop calendar so there is time to change what you plant, and they are never certain. Switching this off stops new forecasts; one already announced still gets its verdict."/>
+        <text name="msw_month_1" text="Jan"/>
+        <text name="msw_month_2" text="Feb"/>
+        <text name="msw_month_3" text="Mar"/>
+        <text name="msw_month_4" text="Apr"/>
+        <text name="msw_month_5" text="May"/>
+        <text name="msw_month_6" text="Jun"/>
+        <text name="msw_month_7" text="Jul"/>
+        <text name="msw_month_8" text="Aug"/>
+        <text name="msw_month_9" text="Sep"/>
+        <text name="msw_month_10" text="Oct"/>
+        <text name="msw_month_11" text="Nov"/>
+        <text name="msw_month_12" text="Dec"/>
     </texts>
 </l10n>

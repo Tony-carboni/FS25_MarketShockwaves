@@ -396,9 +396,12 @@ run across the top, the way the game's own statistics page does it:
 | Tab | Shows |
 |---|---|
 | **Market** | *In the news*: every running event, newest first, under the title it was announced with. *Prices on the move*: every product whose price has moved 1% or more today, largest first. Selecting a news item shows its full message again; selecting a product shows which events are behind it. |
-| **Settings** | the fifteen settings. |
+| **Forecasts** | every forecast that has been announced and is still undecided, with its opening message. The status reads *Open*, or *Verdict close* once its pre-move has begun. Nothing about the outcome. |
+| **History** | every message the mod has shown, newest first: date, kind (event, forecast, verdict, info), title and a one-word status. Selecting a row shows the message again. Kept with the savegame, the last 200. A forecast's row gains its outcome only once the verdict has happened. |
+| **Settings** | the sixteen settings. |
 
-A **Forecasts** tab is planned for the speculation feature.
+The first three tabs share one layout and one piece of code (`LISTS` in
+`HubFrame.lua`): a list on the left, the selected row's text on the right.
 
 **No spoilers.** The Market tab shows only what the player was already told (the
 news item) and what a selling point already shows (today's change). No remaining
@@ -455,7 +458,7 @@ Three decisions worth recording:
    instance method shadows the class one, so no other mod patching
    `InGameMenuSettingsFrame` can collide with us.
 2. **Every row is a `MultiTextOption`, booleans included** (Off/On). One code
-   path covers all fifteen settings, and it matches how most of the game's own
+   path covers all sixteen settings, and it matches how most of the game's own
    rows are built.
 3. **A clone carries the template's `onClickCallback` and `target`**, which point
    at a real base-game handler. Both are overwritten — otherwise changing a mod
@@ -468,6 +471,144 @@ is an acceptable failure, a broken settings page is not.
 "Events per year" replaces an abstract frequency multiplier — the player just
 types how often they want events, and `K = E / Σ baseWeight` distributes that
 budget across the roster (per event = `E × baseWeight / Σ baseWeight`).
+
+---
+
+## Forecasts (speculation)
+
+Added in build b22. Code: `scripts/model/Forecast.lua`, `CropCalendar.lua`,
+`History.lua`; config: `config/forecasts.xml`.
+
+**An event and a forecast do opposite jobs.** An event is a surprise: it rewards
+a quick reaction and leaves the player's plans alone. A forecast arrives early
+enough to change what gets planted, felled or stored, and it is never certain.
+
+### The life of a forecast
+
+1. **Opening message.** Who expects what, and how sure they are.
+2. **Uncertainty.** Months with no price movement at all.
+3. **Pre-move.** Just before the verdict, the lead products edge the way the
+   analysts called it, by a quarter of the expected move. It says the verdict is
+   close, not which way it goes.
+4. **Verdict message.** What actually happened, and why.
+5. **A real event.** The verdict starts an ordinary event. From here the
+   forecast is over: curve, chains, markers and news are the event engine's.
+
+### Rules the owner set
+
+- **Every forecast must be actionable.** There has to be a real way, and enough
+  time, to change a plan. `resolveTiming()` refuses a forecast with fewer than
+  `minLeadMonths` between message and verdict, or for crops the map does not
+  have; `tools/validate_forecasts.py` fails the build on the same rule.
+- **Not niche.** A forecast must not hinge on one crop that needs its own
+  expensive machinery. Hence wheat with oats, canola with sunflower, potatoes
+  with the sugar crops.
+- **The confidence is honest and never below 70.** Rolled per forecast as 70, 80
+  or 90, it is exactly the chance the analysts are right. The player is told in
+  words ("the majority seems to agree", "largely agree", "unanimous"), never as
+  a number.
+- **There is always an effect.** No "nothing happened" outcome.
+- **A crop forecast's effect lasts until that crop's next harvest.** A shortage
+  cannot clear before a new crop comes in; it only fades as stocks are sold.
+- **No numbers in the messages.** No sizes, no exact lengths. Enforced by the
+  validator and the tests.
+- **No console command is needed for anything a player does.** The forecast
+  console commands are for testing only.
+
+### Outcomes
+
+| Outcome | Share (of "right") | What the verdict starts |
+|---|---|---|
+| As forecast | 40 | the forecast's event, medium |
+| Stronger | 12 | the forecast's event, high |
+| Milder | 8 | the forecast's event, low |
+| Right price, wrong reason | 10 | the forecast's event, medium, without any companion event |
+| Backfire | the remaining 100 - confidence | the mirror event, low (60%) or medium (40%) |
+
+The backfire is always the same story: everyone acted on the forecast, so the
+market went the other way.
+
+### Dates come from the map
+
+Maps change the crop calendar, so no months are written for crop forecasts.
+`CropCalendarAdapter` reads each crop's own data file (the crop keeps the path
+it was loaded from), and `MSWCropCalendar.fromGrowthTable` walks its twelve-period
+growth table from sowing to the harvest-ready stage. A growth step applies at
+the END of its period, which is what makes the walk agree with the in-game
+calendar for the base game. The game's own "plantable in this period" function,
+the one its seeders use, has the last word on sowing months. With seasonal growth
+off, or a file that cannot be read, the base-game months are used.
+
+A crop forecast's message arrives in the two months before its anchor crop's
+sowing opens; the verdict falls when that crop's harvest starts; the effect lasts
+twelve months.
+
+### The six forecasts
+
+Months are for the base-game calendar.
+
+| Forecast | Variants | Leads | Follows | Message | Verdict | Effect ends |
+|---|---|---|---|---|---|---|
+| millingGrains | up, down | wheat, oat | flour, bread, cake, cereal, straw, hay | Jul-Aug | Jul | next Jul |
+| vegetableOil | up, down | canola, sunflower | canola oil, sunflower oil | Jun-Jul | Jul | next Jul |
+| biofuel | up, down | corn, soybean | silage | Feb-Mar | Oct | next Oct |
+| foodProcessors | up, down | potato, sugar beet, sugarcane | potato chips, potato soup, sugar, chocolate | Jan-Feb | Aug | next Aug |
+| sawmill | open, close | timber | boards, planks, beams, prefab walls, wood chips move the OTHER way, and recover sooner | any month | a year later | a year after that |
+| winterFeed | severe, long | silage, hay, grass, straw, mixed ration | corn; a severe winter that happens also starts Harsh Winter (energy) | Feb-Apr | Nov / Oct | Apr |
+
+### Outcome events are ordinary events
+
+They use the schema of `events.xml` but live in `forecasts.xml` under
+`<outcomeEvents>`, loaded into `config.forecastEvents`. The random scheduler
+never sees them, and neither do the tools that document the random roster.
+
+- **Their own families.** Both sides of one forecast share a subtype
+  (`fcGrains`, `fcOil`, ...), so they can never run together. They deliberately
+  do NOT share a family with the related random events: an effect runs for a
+  year, and sharing would switch off every grain drought and bumper for that
+  whole year. Overlap with random events is left to the stacking rule.
+- **They do not count against the concurrent-event ceiling** and do not start
+  the quiet period between random events.
+- **A forecast cannot be announced while its own family's event is running.**
+- **Exact length.** `MSWActiveEvent.new` takes `durationMonths`, which replaces
+  the rolled length and ignores the player's duration setting: the effect ends
+  at a point on the calendar.
+- **Early recovery for the opposite side.** `<opposite durationShare="0.65">`
+  plays the opposite group's whole curve in that share of the event. A new
+  sawmill keeps timber dear for a year; its price war on sawn wood ends sooner.
+
+### Rate
+
+`forecastsPerYear` 3.0 is the roll rate before a nine-month cooldown; together
+they give about 0.9 forecasts a year at any season length. At most two are open
+at once, never two of one kind.
+
+### Do forecasts cause spikes? (30,000 simulated years)
+
+`lua tools/sim_forecast_spikes.lua` runs the real model with and without
+forecasts.
+
+| Some product at or above | Events only | With forecasts |
+|---|---|---|
+| +50% | 11.2% of years | 14.3% of years |
+| +75% | 0.23% of years | 2.32% of years |
+| +100% | 0.03% of years | 0.28% of years |
+| +150% | never | never |
+
+Nothing fell below -50% in either run. Of the product-days at +100% or more with
+forecasts, most came from ONE combination: a severe winter that comes in
+"stronger" starts both the feed event and Harsh Winter at high severity, and
+both push silage (Harsh Winter through its biogas link). That is a designed
+double hit, not an unlucky overlap. Capping the companion Harsh Winter at medium
+severity brings +100% years down to 0.07% and +75% years to 0.95%; proposed to
+the owner, not applied.
+
+### Not yet confirmed in game
+
+Everything above is tested offline against the real config. In game, as of b22,
+none of it has run: the crop-file reading, the Forecasts and History tabs, and
+the messages. The log prints one `crop calendar:` line per crop and a
+`forecasts:` block listing what the map offers and when.
 
 ---
 

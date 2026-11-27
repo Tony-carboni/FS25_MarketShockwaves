@@ -143,6 +143,29 @@ function CalendarAdapter:getDaysPerMonth()
     return 1
 end
 
+--- Which day of the current month this is, 1..daysPerMonth. Defaults to 1.
+--- `environment.currentDayInPeriod` is the field the game's own animal-worker
+--- scheduling reads.
+function CalendarAdapter:getDayInMonth()
+    local env = g_currentMission and g_currentMission.environment
+    if env == nil then return 1 end
+    local v = env.currentDayInPeriod
+    if type(v) == "number" and v >= 1 then return v end
+    return 1
+end
+
+--- The year, for dating entries in the history. The game's own year counter is
+--- used when it is there; otherwise the year is counted from the day number,
+--- which is right for the length of a year if not for where it starts.
+function CalendarAdapter:getYear()
+    local env = g_currentMission and g_currentMission.environment
+    if env ~= nil and type(env.currentYear) == "number" and env.currentYear >= 1 then
+        return env.currentYear
+    end
+    local daysPerYear = 12 * self:getDaysPerMonth()
+    return math.floor((self:getDay() - 1) / daysPerYear) + 1
+end
+
 --- Current calendar month, 1 = January. Defaults to 1.
 function CalendarAdapter:getMonth()
     local env = g_currentMission and g_currentMission.environment

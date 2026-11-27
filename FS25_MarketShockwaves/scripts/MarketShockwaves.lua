@@ -23,6 +23,14 @@
       mswNotify <id> [severity]       preview an event message without starting it
       mswMarkers on|off               toggle the [+13%] commodity markers
       mswWelcome                      show the welcome message again
+      mswForecasts                    show open forecasts and what this map offers
+      mswForecast [id] [variant] [70|80|90]   announce a forecast now
+      mswForecastSkip                 bring open forecasts to their pre-move
+      mswVerdict [outcome]            decide the oldest open forecast now
+
+    The forecast commands exist for testing. Nothing a player needs is behind a
+    console command: forecasts arrive, resolve and are listed in the menu on
+    their own.
 ]]
 
 MarketShockwaves = {}
@@ -33,10 +41,14 @@ local SAVEGAME_KEY = "marketShockwaves"
 -- Bumped on every test build that gets zipped. Logged unconditionally, because
 -- a stale install once cost a full round trip of diagnosis: the log looked like
 -- a code bug when the game was simply running yesterday's files.
-local BUILD = "b21"
+local BUILD = "b22"
 
 -- msw_welcome_p1 .. pN in the l10n file.
 local WELCOME_PARAGRAPHS = 5
+
+-- Forecast outcomes a tester may force with mswVerdict.
+local OUTCOME_NAMES = { asForecast = true, stronger = true, milder = true,
+                        wrongReason = true, backfire = true }
 
 function MarketShockwaves.new(modDirectory, modName)
     local self = setmetatable({}, MarketShockwaves_mt)
@@ -62,6 +74,20 @@ function MarketShockwaves.new(modDirectory, modName)
 
     self.economy = EconomyAdapter.new(self.priceModel, self.log)
     self.display = PriceDisplayAdapter.new(self.priceModel, self.economy, self.log)
+
+    -- Forecasts. Their outcome events are added to self.config, so restoring a
+    -- savegame finds them like any other event.
+    self.forecastConfig = MSWForecastDef.loadAll(
+        Utils.getFilename("config/forecasts.xml", modDirectory), self.config, self.log)
+    self.cropCalendar = MSWCropCalendarAdapter.new(self.log)
+    self.forecasts = MSWForecastEngine.new(self.forecastConfig, self.config,
+        function(cropName) return self.cropCalendar:get(cropName) end, self.log)
+    -- An open forecast moves prices only in its pre-move; the price model
+    -- treats it as one more source and stacks it by the usual rule.
+    self.priceModel:setExtraSources(function() return self.forecasts:getOpen() end)
+
+    -- Every message shown, for the hub's History tab.
+    self.history = MSWHistory.new()
 
     -- The menu only moves numbers in the adapter; the side effects live here,
     -- so the same path serves the menu, mswSet and mswReset alike.
@@ -98,9 +124,40 @@ function MarketShockwaves:onMissionLoaded(mission)
         MSWDiag.dumpPriceGui(self.log)
     end
 
+    -- The crop calendar belongs to the map, so anything worked out before this
+    -- point is discarded.
+    self.cropCalendar:reset()
+    self.forecasts:resetTiming()
+
     self:restorePendingSave(dpm)
+    self.priceModel:invalidate()
     self.priceModel:rebuild(self.calendar:getDay())
     self.display:refresh()
+end
+
+--- Log which forecasts this map offers, and when. One block per load: it is
+--- what shows, from a log alone, that the map's calendar was read correctly.
+function MarketShockwaves:logForecastTimings()
+    local available = self.forecasts:getAvailable()
+    self.log:info(("forecasts: %d of %d variant(s) offered on this map")
+        :format(#available, self:countForecastVariants()))
+    for _, entry in ipairs(available) do
+        local months = {}
+        for month = 1, 12 do
+            if entry.timing.arrive[month] then months[#months + 1] = tostring(month) end
+        end
+        self.log:info(("  %s/%s: message in month %s, verdict in month %s, effect %s month(s)")
+            :format(entry.def.id, entry.variant.id,
+                    entry.timing.numArrive == 12 and "any" or table.concat(months, "/"),
+                    tostring(entry.timing.verdictMonth or "lead+" .. tostring(entry.timing.leadFrom(1))),
+                    tostring(entry.timing.durationMonths)))
+    end
+end
+
+function MarketShockwaves:countForecastVariants()
+    local n = 0
+    for _, def in ipairs(self.forecastConfig.forecasts) do n = n + #def.variants end
+    return n
 end
 
 function MarketShockwaves:onStartMission(mission)
@@ -130,6 +187,8 @@ function MarketShockwaves:onStartMission(mission)
         MSWDiag.armSettingsProbe(self.log)
     end
 
+    pcall(function() self:logForecastTimings() end)
+
     self.log:info("ready — type mswStatus in the console for state, "
                .. "mswTrigger grainDrought high to force an event")
 
@@ -139,7 +198,31 @@ function MarketShockwaves:onStartMission(mission)
     if not self.welcomeShown then
         self:showWelcome()
         self.welcomeShown = true
+        self:record({ kind = "info", titleKey = "msw_welcome_title", textKey = "msw_welcome" })
     end
+end
+
+-- ---------------------------------------------------------------------------
+-- Messages and their history
+-- ---------------------------------------------------------------------------
+
+--- Add an entry to the history, stamped with today's date.
+function MarketShockwaves:record(entry)
+    entry.day   = entry.day or self.calendar:getDay()
+    entry.month = entry.month or self.calendar:getMonth()
+    entry.year  = entry.year or self.calendar:getYear()
+    return self.history:add(entry)
+end
+
+--- Show a message and keep it in the history.
+--- @param entry table history entry; titleKey, textKey and argKey give the text
+--- @param opts table|nil { silent = true } to record without a dialog
+function MarketShockwaves:tell(entry, opts)
+    self:record(entry)
+    if opts ~= nil and opts.silent then return end
+    self.notifier:notify(MSWHistory.resolveText(g_i18n, entry.titleKey),
+                         MSWHistory.resolveText(g_i18n, entry.textKey, entry.argKey),
+                         { patient = entry.kind ~= "event" })
 end
 
 --- Queue the introduction. Shown automatically once per savegame (the flag is
@@ -250,9 +333,21 @@ function MarketShockwaves:onNewDay(day)
         return self:afterNewDay(day, dpm, month, fired, nil)
     end
 
+    -- FORECASTS run beside the random events, on their own clock: verdicts
+    -- that fall due today, then perhaps a new forecast. Guarded, so a fault in
+    -- this newer part can never stop the random events below.
+    local okForecasts, errForecasts = pcall(function()
+        self:stepForecasts(day, dpm, month)
+    end)
+    if not okForecasts then
+        self.log:warn("forecast step failed: " .. tostring(errForecasts))
+    end
+
     -- CONCURRENCY CEILING: events are designed to stack, so this is the rail
-    -- that stops an unlucky run compounding indefinitely.
-    local active = #self.priceModel:getActiveEvents()
+    -- that stops an unlucky run compounding indefinitely. An event a forecast
+    -- started does not count: it runs for a year, and would otherwise hold one
+    -- of the few slots the whole time.
+    local active = self:countRandomEvents()
     local maxConcurrent = self.settings:get("maxConcurrentEvents")
     if active >= maxConcurrent then
         self.log:debug(("%d event(s) active, at the limit of %d; not rolling today")
@@ -325,8 +420,122 @@ function MarketShockwaves.diagProbeProducts()
              "PREFABWALL", "WOOD", "GRASS_WINDROW", "STRAW", "MAIZE" }
 end
 
+--- Running events the random scheduler started (not a forecast's verdict).
+function MarketShockwaves:countRandomEvents()
+    local n = 0
+    for _, ev in ipairs(self.priceModel:getActiveEvents()) do
+        if ev.forecastId == nil then n = n + 1 end
+    end
+    return n
+end
+
+-- ---------------------------------------------------------------------------
+-- Forecasts
+-- ---------------------------------------------------------------------------
+
+--- One day of the forecast clock.
+function MarketShockwaves:stepForecasts(day, dpm, month)
+    for _, verdict in ipairs(self.forecasts:collectDue(day)) do
+        self:deliverVerdict(verdict, day, dpm)
+    end
+
+    if not self.settings:isOn("forecasts") then return end
+
+    local entry = self.forecasts:rollStart(day, month, dpm, function(def, variant)
+        return self:isForecastBlocked(variant, day)
+    end)
+    if entry ~= nil then
+        self:openForecast(entry.def, entry.variant, entry.timing, day, month, dpm)
+    end
+end
+
+--- A forecast cannot be announced while an event of its own family is still
+--- running: its verdict would have nothing it is allowed to start.
+function MarketShockwaves:isForecastBlocked(variant, day)
+    local eventDef = MSWEventDef.findById(self.config, variant.event)
+    if eventDef == nil then return true end
+    return self.priceModel:findActiveBySubtype(eventDef.subtype or eventDef.id, day) ~= nil
+end
+
+--- Announce a forecast.
+function MarketShockwaves:openForecast(def, variant, timing, day, month, dpm, confidence)
+    local forecast = self.forecasts:start(def, variant, timing, day, month, dpm, {
+        confidence = confidence,
+        intensity = self.settings:get("intensity"),
+        dayInMonth = self.calendar:getDayInMonth(),
+    })
+    self.priceModel:invalidate()
+
+    self.log:info(("forecast opened: %s/%s confidence=%d verdict on day %d (in %d days), "
+        .. "pre-move %d day(s) of %+.1f%%")
+        :format(def.id, variant.id, forecast.confidence, forecast.verdictDay,
+                forecast.verdictDay - day, forecast.premoveDays,
+                forecast.premoveDeviation * 100))
+
+    -- The first forecast of a savegame is preceded by a short explanation of
+    -- what a forecast is. Queued first, so it is read first.
+    if not self.forecasts.tipShown then
+        self.forecasts.tipShown = true
+        self:tell({ kind = "info", titleKey = "msw_fc_tip_title", textKey = "msw_fc_tip" })
+    end
+
+    local titleKey, textKey = MSWForecastDef.messageKeys(def.id, variant.id, "open")
+    self:tell({
+        kind = "forecast", titleKey = titleKey, textKey = textKey,
+        argKey = MSWForecastDef.confidenceKey(forecast.confidence),
+        ref = ("%s@%d"):format(def.id, day), status = "open",
+    })
+    return forecast
+end
+
+--- A forecast's verdict: start the event(s) it resolved to and tell the player.
+--- From here on it is an ordinary event.
+function MarketShockwaves:deliverVerdict(verdict, day, dpm)
+    local forecast = verdict.forecast
+    local ref = ("%s@%d"):format(forecast.forecastId, forecast.startDay)
+    self.priceModel:invalidate()
+
+    self.log:info(("forecast verdict: %s/%s (confidence %d) -> %s")
+        :format(forecast.forecastId, forecast.variantId, forecast.confidence or 0,
+                verdict.outcome))
+
+    local mainEventId
+    for _, item in ipairs(verdict.events) do
+        local def = MSWEventDef.findById(self.config, item.eventId)
+        if def == nil then
+            self.log:warn(("forecast verdict: event '%s' is not defined"):format(tostring(item.eventId)))
+        else
+            local ev = self:fireEvent(def, item.severity, day, dpm, {
+                silent = true, fromForecast = true,
+                durationMonths = item.durationMonths,
+                titleKey = item.titleKey, textKey = item.textKey,
+                forecastId = item.forecastId,
+            })
+            if ev ~= nil and item.companion then
+                -- A companion is a normal event with its own news item; it is
+                -- listed, but the verdict message is the one shown on screen.
+                local titleKey, textKey = MSWMarketView.newsKeys(def.id, item.severity)
+                self:tell({ kind = "event", titleKey = titleKey, textKey = textKey,
+                            eventId = def.id, eventStartDay = day }, { silent = true })
+            elseif ev ~= nil then
+                mainEventId = def.id
+            end
+        end
+    end
+
+    self.history:setStatus("forecast", ref, verdict.outcome)
+    self:tell({ kind = "verdict", titleKey = verdict.titleKey, textKey = verdict.textKey,
+                ref = ref, status = verdict.outcome,
+                eventId = mainEventId, eventStartDay = day })
+end
+
 --- Start an event now.
-function MarketShockwaves:fireEvent(def, severityClass, day, daysPerMonth)
+--- @param opts table|nil for an event started by a forecast's verdict:
+---        silent        no message of its own (the verdict message covers it)
+---        fromForecast  does not start the quiet period between random events
+---        durationMonths, titleKey, textKey, forecastId  see MSWActiveEvent.new
+function MarketShockwaves:fireEvent(def, severityClass, day, daysPerMonth, opts)
+    opts = opts or {}
     if def.severities[severityClass] == nil then
         self.log:warn(("event '%s' has no '%s' severity"):format(def.id, severityClass))
         return nil
@@ -350,10 +559,12 @@ function MarketShockwaves:fireEvent(def, severityClass, day, daysPerMonth)
     end
 
     local ev = MSWActiveEvent.new(def, severityClass, day, daysPerMonth,
-                                  self.settings:getInstanceScalers())
+                                  self.settings:getInstanceScalers(), opts)
     self.priceModel:addEvent(ev)
     -- Starts the quiet period, whether this came from the scheduler or console.
-    self.lastEventDay = day
+    -- A verdict does not: it was announced months ago, and must not also
+    -- silence the random events around it.
+    if not opts.fromForecast then self.lastEventDay = day end
     self.priceModel:rebuild(day)
     self.display:refresh()
 
@@ -365,23 +576,22 @@ function MarketShockwaves:fireEvent(def, severityClass, day, daysPerMonth)
         MSWDiag.dumpEventInstance(self.log, ev)
     end
 
-    self:announce(def, severityClass)
+    if not opts.silent then self:announce(def, severityClass, day) end
     return ev
 end
 
---- Show the player the flavour message (l10n, with a fallback).
-function MarketShockwaves:announce(def, severityClass)
-    local titleKey = ("msw_%s_%s_title"):format(def.id, severityClass)
-    local textKey  = ("msw_%s_%s_text"):format(def.id, severityClass)
-
-    local function text(key, fallback)
-        if g_i18n ~= nil and g_i18n:hasText(key) then return g_i18n:getText(key) end
-        return fallback
+--- Show the player the flavour message and keep it in the history.
+--- @param day number|nil the day the event started; nil for a preview
+---        (mswNotify), which is shown but not recorded
+function MarketShockwaves:announce(def, severityClass, day)
+    local titleKey, textKey = MSWMarketView.newsKeys(def.id, severityClass)
+    if day == nil then
+        self.notifier:notify(MSWHistory.resolveText(g_i18n, titleKey),
+                             MSWHistory.resolveText(g_i18n, textKey))
+        return
     end
-
-    self.notifier:notify(
-        text(titleKey, def.id),
-        text(textKey, ("A %s market event has begun."):format(severityClass)))
+    self:tell({ kind = "event", titleKey = titleKey, textKey = textKey,
+                eventId = def.id, eventStartDay = day })
 end
 
 -- ---------------------------------------------------------------------------
@@ -444,6 +654,17 @@ function MarketShockwaves:save()
             ev:saveToXML(xml, ("%s.activeEvents.event(%d)"):format(SAVEGAME_KEY, i))
             i = i + 1
         end
+
+        -- Each in its own pcall: a fault in the newer parts must not cost the
+        -- player their running events, which are already written above.
+        local okF, errF = pcall(function()
+            self.forecasts:saveToXML(xml, SAVEGAME_KEY .. ".forecasts")
+        end)
+        if not okF then self.log:warn("save: forecasts not saved: " .. tostring(errF)) end
+        local okH, errH = pcall(function()
+            self.history:saveToXML(xml, SAVEGAME_KEY .. ".history")
+        end)
+        if not okH then self.log:warn("save: history not saved: " .. tostring(errH)) end
 
         saveXMLFile(xml)
         delete(xml)
@@ -511,9 +732,32 @@ function MarketShockwaves:restorePendingSave(daysPerMonth)
             i = i + 1
         end
 
+        local okF, errF = pcall(function()
+            self.forecasts:loadFromXML(xml, SAVEGAME_KEY .. ".forecasts")
+        end)
+        if not okF then self.log:warn("restore: forecasts not restored: " .. tostring(errF)) end
+        local okH, errH = pcall(function()
+            self.history:loadFromXML(xml, SAVEGAME_KEY .. ".history")
+        end)
+        if not okH then self.log:warn("restore: history not restored: " .. tostring(errH)) end
+
         delete(xml)
-        self.log:info(("restore: %d event(s) restored, %d dropped")
-            :format(restored, dropped))
+        self.log:info(("restore: %d event(s) restored, %d dropped; %d open forecast(s), "
+            .. "%d history entr(ies)")
+            :format(restored, dropped, #self.forecasts:getOpen(), self.history:count()))
+
+        -- A savegame from before the history existed: list what is running
+        -- now, so the tab is not empty while the market is plainly moving.
+        if self.history:count() == 0 then
+            for _, ev in ipairs(self.priceModel:getActiveEvents()) do
+                local titleKey, textKey = MSWMarketView.newsKeys(ev.eventId, ev.severity)
+                self.history:add({
+                    kind = "event", titleKey = ev.titleKey or titleKey,
+                    textKey = ev.textKey or textKey, eventId = ev.eventId,
+                    eventStartDay = ev.startDay, day = ev.startDay,
+                })
+            end
+        end
 
         -- Expire anything that finished while the game was closed.
         local expired = self.priceModel:pruneExpired(self.calendar:getDay())
@@ -616,8 +860,103 @@ end
 
 function MarketShockwaves:consoleClear()
     self.priceModel:clearEvents()
+    self.forecasts:clear()
+    self.priceModel:invalidate()
     self.display:restoreAll()
-    return "cleared all active events"
+    return "cleared all active events and open forecasts"
+end
+
+-- ---- forecast test commands ------------------------------------------------
+
+function MarketShockwaves:consoleForecasts()
+    local day = self.calendar:getDay()
+    local dpm = self.calendar:getDaysPerMonth()
+    local out = { "--- Market Shockwaves forecasts ---",
+                  ("forecasts %s; cooldown %.1f day(s) left")
+                      :format(self.settings:isOn("forecasts") and "ON" or "OFF",
+                              self.forecasts:getCooldownRemaining(day, dpm)) }
+    out[#out + 1] = "open:"
+    for _, f in ipairs(self.forecasts:getOpen()) do
+        out[#out + 1] = ("  %s/%s confidence=%d opened day %d, verdict day %d (%d to go), "
+            .. "pre-move %d day(s)%s")
+            :format(f.forecastId, f.variantId, f.confidence or 0, f.startDay, f.verdictDay,
+                    f.verdictDay - day, f.premoveDays or 0,
+                    f:isInPremove(day) and " - IN PRE-MOVE" or "")
+    end
+    if #self.forecasts:getOpen() == 0 then out[#out + 1] = "  (none)" end
+    out[#out + 1] = "offered on this map (id/variant):"
+    for _, entry in ipairs(self.forecasts:getAvailable()) do
+        out[#out + 1] = ("  %s/%s"):format(entry.def.id, entry.variant.id)
+    end
+    return table.concat(out, "\n")
+end
+
+function MarketShockwaves:consoleForecast(forecastId, variantId, confidence)
+    local available = self.forecasts:getAvailable()
+    if #available == 0 then return "no forecast can be offered on this map" end
+
+    local pick
+    for _, entry in ipairs(available) do
+        if (forecastId == nil or entry.def.id == forecastId)
+           and (variantId == nil or entry.variant.id == variantId) then
+            pick = entry
+            break
+        end
+    end
+    if pick == nil then
+        return "no such forecast on this map — run mswForecasts for the list"
+    end
+    if self.forecasts:isOpen(pick.def.id) then
+        return ("'%s' is already open — use mswVerdict or mswClear first"):format(pick.def.id)
+    end
+    local day = self.calendar:getDay()
+    if self:isForecastBlocked(pick.variant, day) then
+        return ("'%s' cannot open while its own event is still running — mswClear first")
+            :format(pick.def.id)
+    end
+    local level = tonumber(confidence)
+    if level ~= 70 and level ~= 80 and level ~= 90 then level = nil end
+    local forecast = self:openForecast(pick.def, pick.variant, pick.timing, day,
+                                       self.calendar:getMonth(),
+                                       self.calendar:getDaysPerMonth(), level)
+    self.display:refresh()
+    return ("opened %s/%s: confidence %d, verdict on day %d (%d days from now)")
+        :format(pick.def.id, pick.variant.id, forecast.confidence, forecast.verdictDay,
+                forecast.verdictDay - day)
+end
+
+--- Move every open forecast so its pre-move starts today. The verdict then
+--- arrives on its own once the pre-move has played out.
+function MarketShockwaves:consoleForecastSkip()
+    local day = self.calendar:getDay()
+    local n = 0
+    for _, f in ipairs(self.forecasts:getOpen()) do
+        f.verdictDay = day + math.max(1, f.premoveDays or 1)
+        n = n + 1
+    end
+    if n == 0 then return "no open forecast" end
+    self.priceModel:invalidate()
+    self.priceModel:rebuild(day)
+    self.display:refresh()
+    return ("%d forecast(s) moved to their pre-move; the verdict follows when it ends"):format(n)
+end
+
+--- Decide the oldest open forecast now, optionally with a chosen outcome.
+function MarketShockwaves:consoleVerdict(outcome)
+    local open = self.forecasts:getOpen()
+    if #open == 0 then return "no open forecast" end
+    if outcome ~= nil and not OUTCOME_NAMES[outcome] then
+        return "outcome must be one of: asForecast stronger milder wrongReason backfire"
+    end
+    local forecast = table.remove(open, 1)
+    local verdict = self.forecasts:buildVerdict(forecast, outcome and { outcome = outcome } or nil)
+    if verdict == nil then return "that forecast is no longer in the config" end
+    local day = self.calendar:getDay()
+    self:deliverVerdict(verdict, day, self.calendar:getDaysPerMonth())
+    self.priceModel:rebuild(day)
+    self.display:refresh()
+    return ("verdict for %s/%s: %s"):format(forecast.forecastId, forecast.variantId,
+                                            verdict.outcome)
 end
 
 function MarketShockwaves:consoleSet(name, value)
@@ -765,6 +1104,10 @@ local function onLoad(mission)
     addConsoleCommand("mswSettings","Market Shockwaves: list all settings",     "consoleSettings",instance)
     addConsoleCommand("mswReset",   "Market Shockwaves: reset settings",        "consoleReset",   instance)
     addConsoleCommand("mswWelcome", "Market Shockwaves: show the welcome message again", "consoleWelcome", instance)
+    addConsoleCommand("mswForecasts", "Market Shockwaves: list forecasts", "consoleForecasts", instance)
+    addConsoleCommand("mswForecast", "Market Shockwaves: announce a forecast now", "consoleForecast", instance)
+    addConsoleCommand("mswForecastSkip", "Market Shockwaves: bring open forecasts to their pre-move", "consoleForecastSkip", instance)
+    addConsoleCommand("mswVerdict", "Market Shockwaves: decide the oldest open forecast now", "consoleVerdict", instance)
 end
 
 local function onLoadFinished(mission)

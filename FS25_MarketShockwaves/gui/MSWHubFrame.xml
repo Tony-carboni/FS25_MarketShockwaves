@@ -6,6 +6,9 @@
     page follows the game's look and survives its restyling. The profiles at the
     bottom are only for what the base game has no equivalent of.
 
+    Four sub-tabs: Market, Forecasts, History, Settings. The first three share
+    one layout (a list on the left, the selected row's text on the right).
+
     The settings rows are NOT written out here. The layout holds one template
     row and one header; SettingsMenu clones the row once per setting, exactly as
     it did on the GAME SETTINGS page, and hides the templates.
@@ -21,7 +24,13 @@
             <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[1]" text="$l10n_msw_hub_tab_market" onClick="onClickMarketTab">
                 <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
             </Button>
-            <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[2]" text="$l10n_msw_hub_tab_settings" onClick="onClickSettingsTab">
+            <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[2]" text="$l10n_msw_hub_tab_forecasts" onClick="onClickForecastsTab">
+                <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
+            </Button>
+            <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[3]" text="$l10n_msw_hub_tab_history" onClick="onClickHistoryTab">
+                <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
+            </Button>
+            <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[4]" text="$l10n_msw_hub_tab_settings" onClick="onClickSettingsTab">
                 <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
             </Button>
         </BoxLayout>
@@ -51,8 +60,52 @@
             </GuiElement>
         </GuiElement>
 
-        <!-- ================= SETTINGS ================= -->
+        <!-- ================= FORECASTS =================
+             Same two-column layout as Market: a list on the left, the message
+             behind the selected row on the right. -->
         <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[2]">
+            <SmoothList profile="msw_hubList" id="forecastList">
+                <ListItem profile="msw_hubListItem">
+                    <Text profile="msw_hubCellName" name="name"/>
+                    <Text profile="msw_hubCellChange" name="change"/>
+                </ListItem>
+            </SmoothList>
+            <ThreePartBitmap profile="msw_hubListSliderBox">
+                <Slider profile="fs25_listSlider" dataElementId="forecastList"/>
+            </ThreePartBitmap>
+
+            <Text profile="msw_hubEmptyText" id="forecastEmptyText" text="$l10n_msw_hub_no_forecasts" visible="false"/>
+
+            <GuiElement profile="msw_hubDetailBox">
+                <Text profile="msw_hubDetailTitle" id="forecastDetailTitle"/>
+                <Text profile="msw_hubDetailText" id="forecastDetailText"/>
+            </GuiElement>
+        </GuiElement>
+
+        <!-- ================= HISTORY ================= -->
+        <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[3]">
+            <SmoothList profile="msw_hubList" id="historyList">
+                <ListItem profile="msw_hubListItem">
+                    <Text profile="msw_hubCellDate" name="date"/>
+                    <Text profile="msw_hubCellKind" name="kind"/>
+                    <Text profile="msw_hubCellTitle" name="name"/>
+                    <Text profile="msw_hubCellStatus" name="change"/>
+                </ListItem>
+            </SmoothList>
+            <ThreePartBitmap profile="msw_hubListSliderBox">
+                <Slider profile="fs25_listSlider" dataElementId="historyList"/>
+            </ThreePartBitmap>
+
+            <Text profile="msw_hubEmptyText" id="historyEmptyText" text="$l10n_msw_hub_no_history" visible="false"/>
+
+            <GuiElement profile="msw_hubDetailBox">
+                <Text profile="msw_hubDetailTitle" id="historyDetailTitle"/>
+                <Text profile="msw_hubDetailText" id="historyDetailText"/>
+            </GuiElement>
+        </GuiElement>
+
+        <!-- ================= SETTINGS ================= -->
+        <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[4]">
             <ScrollingLayout profile="fs25_settingsLayout" id="settingsLayout">
                 <Text profile="fs25_settingsSectionHeader" name="sectionHeader"/>
                 <Bitmap profile="msw_hubSettingsRow">
@@ -121,6 +174,33 @@
             <size value="150px 36px"/>
             <textAlignment value="right"/>
         </Profile>
+        <!-- History rows: date, kind, title, status. Fixed widths with a cap on
+             each text, so a long title cannot run into the status. -->
+        <Profile name="msw_hubCellDate" extends="msw_hubCellName">
+            <position value="16px 0px"/>
+            <size value="150px 36px"/>
+            <textBold value="false"/>
+            <textMaxWidth value="145px"/>
+        </Profile>
+        <Profile name="msw_hubCellKind" extends="msw_hubCellName">
+            <position value="170px 0px"/>
+            <size value="100px 36px"/>
+            <textBold value="false"/>
+            <textMaxWidth value="95px"/>
+        </Profile>
+        <Profile name="msw_hubCellTitle" extends="msw_hubCellName">
+            <position value="275px 0px"/>
+            <size value="300px 36px"/>
+            <textMaxWidth value="295px"/>
+        </Profile>
+        <Profile name="msw_hubCellStatus" extends="msw_hubCellName">
+            <position value="580px 0px"/>
+            <size value="165px 36px"/>
+            <textBold value="false"/>
+            <textAlignment value="right"/>
+            <textMaxWidth value="165px"/>
+        </Profile>
+
         <Profile name="msw_hubListSliderBox" extends="fs25_listSliderBox" with="anchorTopLeft pivotTopLeft">
             <position value="772px -20px"/>
             <size value="6px 640px"/>

@@ -5,10 +5,13 @@
     and to change how the mod behaves. Sub-tabs across the top:
 
         MARKET     what is in the news, and which prices are moving today
+        FORECASTS  what has been announced and is still undecided
+        HISTORY    every message the mod has shown, newest first
         SETTINGS   every setting (moved here from GAME SETTINGS)
 
-    More tabs are expected (forecasts, once speculation exists), which is why
-    the tab handling below is table-driven rather than written for two.
+    The first three share one shape: a list on the left and, on the right, the
+    text behind the selected row. They are driven by the LISTS table below, so
+    the data-source and selection code is written once.
 
     HOW IT GETS INTO THE MENU. The ESC menu is a TabbedMenu. A page is a
     TabbedMenuFrameElement loaded from its own layout, added to the menu's
@@ -22,8 +25,11 @@
     to the settings rows in GAME SETTINGS. All drawing code runs under pcall for
     the same reason: a mistake here must cost this page, never the ESC menu.
 
-    The data shown comes from MSWMarketView (pure logic, tested offline); this
-    file only draws it.
+    NO SPOILERS. Nothing here shows how long an event has left, how big it will
+    get, or how a forecast will turn out before its verdict.
+
+    The data shown comes from MSWMarketView, MSWForecastEngine and MSWHistory
+    (pure logic, tested offline); this file only draws it.
 ]]
 
 MSWHubFrame = {}
@@ -31,11 +37,27 @@ MSWHubFrame = {}
 local PAGE_NAME = "pageMarketShockwaves"
 local GUI_NAME  = "MSWHubFrame"
 
-MSWHubFrame.TAB = { MARKET = 1, SETTINGS = 2 }
-local TAB_COUNT = 2
+MSWHubFrame.TAB = { MARKET = 1, FORECASTS = 2, HISTORY = 3, SETTINGS = 4 }
+local TAB_COUNT = 4
 
 -- List sections on the Market tab.
 local SECTION_EVENTS, SECTION_PRODUCTS = 1, 2
+
+-- The three list tabs: which controls belong to each.
+local LISTS = {
+    [MSWHubFrame.TAB.MARKET] = {
+        list = "marketList", empty = "marketEmptyText",
+        title = "detailTitle", body = "detailText",
+    },
+    [MSWHubFrame.TAB.FORECASTS] = {
+        list = "forecastList", empty = "forecastEmptyText",
+        title = "forecastDetailTitle", body = "forecastDetailText",
+    },
+    [MSWHubFrame.TAB.HISTORY] = {
+        list = "historyList", empty = "historyEmptyText",
+        title = "historyDetailTitle", body = "historyDetailText",
+    },
+}
 
 -- Only defined inside the game: the offline tests load the pure-logic modules
 -- and never this class.
@@ -56,6 +78,8 @@ function MSWHubFrame.new(mod)
     self.hasCustomMenuButtons = true
     self.tabState = MSWHubFrame.TAB.MARKET
     self.view = { events = {}, products = {} }
+    self.forecastRows = {}
+    self.historyRows = {}
     self.settingsBuilt = false
     return self
 end
@@ -81,10 +105,15 @@ end
 function MSWHubFrame:onGuiSetupFinished()
     MSWHubFrame:superClass().onGuiSetupFinished(self)
 
-    self:guard("list setup", function()
-        self.marketList:setDataSource(self)
-        self.marketList:setDelegate(self)
-    end)
+    for _, controls in pairs(LISTS) do
+        self:guard("list setup " .. controls.list, function()
+            local list = self[controls.list]
+            if list ~= nil then
+                list:setDataSource(self)
+                list:setDelegate(self)
+            end
+        end)
+    end
 
     -- The tab buttons draw as selected when their index is the current tab.
     self:guard("tab setup", function()
@@ -120,7 +149,6 @@ function MSWHubFrame:onFrameOpen()
     end)
 
     self:guard("settings rows", function() self:ensureSettingsRows() end)
-    self:guard("market data", function() self:reloadMarket() end)
     self:guard("tab pages", function() self:showTab(self.tabState) end)
 end
 
@@ -157,9 +185,10 @@ function MSWHubFrame:showTab(index)
             pcall(function() FocusManager:setFocus(self.settingsLayout) end)
         end
     else
-        self:reloadMarket()
-        if self.marketList ~= nil and FocusManager ~= nil then
-            pcall(function() FocusManager:setFocus(self.marketList) end)
+        self:guard("tab data", function() self:reloadTab(index) end)
+        local list = self[LISTS[index].list]
+        if list ~= nil and FocusManager ~= nil then
+            pcall(function() FocusManager:setFocus(list) end)
         end
     end
     self:setMenuButtonInfoDirty()
@@ -167,6 +196,14 @@ end
 
 function MSWHubFrame:onClickMarketTab()
     self:guard("market tab", function() self:showTab(MSWHubFrame.TAB.MARKET) end)
+end
+
+function MSWHubFrame:onClickForecastsTab()
+    self:guard("forecasts tab", function() self:showTab(MSWHubFrame.TAB.FORECASTS) end)
+end
+
+function MSWHubFrame:onClickHistoryTab()
+    self:guard("history tab", function() self:showTab(MSWHubFrame.TAB.HISTORY) end)
 end
 
 function MSWHubFrame:onClickSettingsTab()
@@ -196,22 +233,71 @@ function MSWHubFrame:ensureSettingsRows()
 end
 
 -- ---------------------------------------------------------------------------
--- Market tab
+-- Loading the list tabs
 -- ---------------------------------------------------------------------------
 
-function MSWHubFrame:reloadMarket()
-    local day = self.mod.calendar ~= nil and self.mod.calendar:getDay() or nil
-    self.mod.priceModel:rebuild(day)
-    self.view = MSWMarketView.build(self.mod.priceModel, day)
-
-    local calm = #self.view.events == 0
-    if self.marketEmptyText ~= nil then self.marketEmptyText:setVisible(calm) end
-    if self.marketList ~= nil then
-        self.marketList:setVisible(not calm)
-        self.marketList:reloadData()
-    end
-    if calm then self:showDetail(nil, nil) end
+function MSWHubFrame:today()
+    return self.mod.calendar ~= nil and self.mod.calendar:getDay() or nil
 end
+
+--- Fill a list tab with today's data and show its empty text if there is none.
+function MSWHubFrame:reloadTab(index)
+    local controls = LISTS[index]
+    if controls == nil then return end
+    local day = self:today()
+    local isEmpty
+
+    if index == MSWHubFrame.TAB.MARKET then
+        local open = self.mod.forecasts ~= nil and self.mod.forecasts:getOpen() or nil
+        self.mod.priceModel:rebuild(day)
+        self.view = MSWMarketView.build(self.mod.priceModel, day, open)
+        isEmpty = #self.view.events == 0 and #self.view.products == 0
+    elseif index == MSWHubFrame.TAB.FORECASTS then
+        self.forecastRows = {}
+        for _, forecast in ipairs(self.mod.forecasts ~= nil and self.mod.forecasts:getOpen() or {}) do
+            self.forecastRows[#self.forecastRows + 1] = forecast
+        end
+        -- Newest first.
+        table.sort(self.forecastRows, function(a, b) return a.startDay > b.startDay end)
+        isEmpty = #self.forecastRows == 0
+    else
+        self.historyRows = self.mod.history ~= nil and self.mod.history:getNewestFirst() or {}
+        isEmpty = #self.historyRows == 0
+    end
+
+    local empty, list = self[controls.empty], self[controls.list]
+    if empty ~= nil then empty:setVisible(isEmpty) end
+    if list ~= nil then
+        list:setVisible(not isEmpty)
+        list:reloadData()
+    end
+    if isEmpty then self:showDetail(index, nil, nil) end
+end
+
+--- Kept for callers that refresh the Market tab by name.
+function MSWHubFrame:reloadMarket()
+    self:reloadTab(MSWHubFrame.TAB.MARKET)
+end
+
+function MSWHubFrame:showDetail(index, title, body)
+    local controls = LISTS[index]
+    if controls == nil then return end
+    local titleElement, bodyElement = self[controls.title], self[controls.body]
+    if titleElement ~= nil then titleElement:setText(title or "") end
+    if bodyElement ~= nil then bodyElement:setText(body or "") end
+end
+
+--- Which tab a list control belongs to.
+function MSWHubFrame:tabOfList(list)
+    for index, controls in pairs(LISTS) do
+        if self[controls.list] == list then return index end
+    end
+    return MSWHubFrame.TAB.MARKET
+end
+
+-- ---------------------------------------------------------------------------
+-- What the rows say
+-- ---------------------------------------------------------------------------
 
 --- A product's name as the game shows it, without our own [+13%] marker.
 function MSWHubFrame:productTitle(name)
@@ -237,23 +323,71 @@ function MSWHubFrame:eventTitle(eventId)
     return eventId
 end
 
-function MSWHubFrame:showDetail(title, body)
-    if self.detailTitle ~= nil then self.detailTitle:setText(title or "") end
-    if self.detailText ~= nil then self.detailText:setText(body or "") end
+--- "Mar, year 2", or "" for an entry from before dates were recorded.
+function MSWHubFrame:dateLabel(month, year)
+    if month == nil or year == nil then return "" end
+    return text("msw_hub_date", "%s, year %d")
+        :format(text(("msw_month_%d"):format(month), tostring(month)), year)
+end
+
+--- Is the event behind a history entry still running?
+function MSWHubFrame:isEventRunning(eventId, startDay)
+    local day = self:today()
+    if eventId == nil or startDay == nil or day == nil then return false end
+    for _, ev in ipairs(self.mod.priceModel:getActiveEvents()) do
+        if ev.eventId == eventId and ev.startDay == startDay and not ev:isExpired(day) then
+            return true
+        end
+    end
+    return false
+end
+
+--- A word for where an entry stands. Never a number.
+function MSWHubFrame:historyStatus(entry)
+    if entry.kind == "forecast" then
+        return text("msw_hub_status_" .. tostring(entry.status or "open"), "")
+    end
+    if entry.kind == "event" or entry.kind == "verdict" then
+        if entry.eventId == nil then return "" end
+        if self:isEventRunning(entry.eventId, entry.eventStartDay) then
+            return text("msw_hub_status_running", "Running")
+        end
+        return text("msw_hub_status_ended", "Ended")
+    end
+    return ""
+end
+
+function MSWHubFrame:forecastTitle(forecast)
+    local titleKey = MSWForecastDef.messageKeys(forecast.forecastId, forecast.variantId, "open")
+    return text(titleKey, forecast.forecastId)
+end
+
+--- The history entry a forecast was announced with (for its date).
+function MSWHubFrame:forecastEntry(forecast)
+    local ref = ("%s@%d"):format(forecast.forecastId, forecast.startDay)
+    for _, entry in ipairs(self.mod.history ~= nil and self.mod.history.entries or {}) do
+        if entry.kind == "forecast" and entry.ref == ref then return entry end
+    end
+    return nil
 end
 
 -- ---- SmoothList data source ----------------------------------------------
 
-function MSWHubFrame:getNumberOfSections()
-    return 2
+function MSWHubFrame:getNumberOfSections(list)
+    if self:tabOfList(list) == MSWHubFrame.TAB.MARKET then return 2 end
+    return 1
 end
 
 function MSWHubFrame:getNumberOfItemsInSection(list, section)
+    local tab = self:tabOfList(list)
+    if tab == MSWHubFrame.TAB.FORECASTS then return #self.forecastRows end
+    if tab == MSWHubFrame.TAB.HISTORY then return #self.historyRows end
     if section == SECTION_EVENTS then return #self.view.events end
     return #self.view.products
 end
 
 function MSWHubFrame:getTitleForSectionHeader(list, section)
+    if self:tabOfList(list) ~= MSWHubFrame.TAB.MARKET then return nil end
     if section == SECTION_EVENTS then
         return text("msw_hub_section_news", "In the news")
     end
@@ -261,17 +395,37 @@ function MSWHubFrame:getTitleForSectionHeader(list, section)
 end
 
 function MSWHubFrame:populateCellForItemInSection(list, section, index, cell)
+    local tab = self:tabOfList(list)
     local nameCell, changeCell = cell:getAttribute("name"), cell:getAttribute("change")
-    if section == SECTION_EVENTS then
+    local function set(element, value)
+        if element ~= nil then element:setText(value or "") end
+    end
+
+    if tab == MSWHubFrame.TAB.FORECASTS then
+        local forecast = self.forecastRows[index]
+        if forecast == nil then return end
+        set(nameCell, self:forecastTitle(forecast))
+        -- The pre-move is the visible sign that a verdict is close.
+        local close = forecast:isInPremove(self:today() or 0)
+        set(changeCell, close and text("msw_hub_status_close", "Verdict close")
+                               or text("msw_hub_status_open", "Open"))
+    elseif tab == MSWHubFrame.TAB.HISTORY then
+        local entry = self.historyRows[index]
+        if entry == nil then return end
+        set(cell:getAttribute("date"), self:dateLabel(entry.month, entry.year))
+        set(cell:getAttribute("kind"), text("msw_hub_kind_" .. tostring(entry.kind), ""))
+        set(nameCell, MSWHistory.resolveText(g_i18n, entry.titleKey))
+        set(changeCell, self:historyStatus(entry))
+    elseif section == SECTION_EVENTS then
         local e = self.view.events[index]
         if e == nil then return end
-        if nameCell ~= nil then nameCell:setText(text(e.titleKey, e.eventId)) end
-        if changeCell ~= nil then changeCell:setText("") end
+        set(nameCell, text(e.titleKey, e.eventId))
+        set(changeCell, "")
     else
         local p = self.view.products[index]
         if p == nil then return end
-        if nameCell ~= nil then nameCell:setText(self:productTitle(p.name)) end
-        if changeCell ~= nil then changeCell:setText(MSWMarketView.formatChange(p.factor)) end
+        set(nameCell, self:productTitle(p.name))
+        set(changeCell, MSWMarketView.formatChange(p.factor))
     end
 end
 
@@ -279,17 +433,47 @@ end
 
 function MSWHubFrame:onListSelectionChanged(list, section, index)
     self:guard("selection", function()
+        local tab = self:tabOfList(list)
+
+        if tab == MSWHubFrame.TAB.FORECASTS then
+            local forecast = self.forecastRows[index]
+            if forecast == nil then return end
+            local _, textKey = MSWForecastDef.messageKeys(forecast.forecastId,
+                                                          forecast.variantId, "open")
+            local body = MSWHistory.resolveText(g_i18n, textKey,
+                MSWForecastDef.confidenceKey(forecast.confidence or 70))
+            local entry = self:forecastEntry(forecast)
+            local date = entry ~= nil and self:dateLabel(entry.month, entry.year) or ""
+            if date ~= "" then
+                body = text("msw_hub_announced", "Announced: %s"):format(date) .. "\n\n" .. body
+            end
+            self:showDetail(tab, self:forecastTitle(forecast), body)
+            return
+        end
+
+        if tab == MSWHubFrame.TAB.HISTORY then
+            local entry = self.historyRows[index]
+            if entry == nil then return end
+            self:showDetail(tab, MSWHistory.resolveText(g_i18n, entry.titleKey),
+                            MSWHistory.resolveText(g_i18n, entry.textKey, entry.argKey))
+            return
+        end
+
         if section == SECTION_EVENTS then
             local e = self.view.events[index]
             if e ~= nil then
-                self:showDetail(text(e.titleKey, e.eventId), text(e.textKey, ""))
+                self:showDetail(tab, text(e.titleKey, e.eventId), text(e.textKey, ""))
             end
         else
             local p = self.view.products[index]
             if p ~= nil then
                 local titles = {}
                 for _, id in ipairs(p.eventIds) do titles[#titles + 1] = self:eventTitle(id) end
-                self:showDetail(
+                for _, key in ipairs(p.forecastTitleKeys or {}) do
+                    titles[#titles + 1] = text("msw_hub_moved_by_forecast", "Forecast: %s")
+                        :format(text(key, key))
+                end
+                self:showDetail(tab,
                     ("%s  %s"):format(self:productTitle(p.name), MSWMarketView.formatChange(p.factor)),
                     text("msw_hub_moved_by", "Moved by:") .. "\n" .. table.concat(titles, "\n"))
             end
@@ -367,6 +551,12 @@ function MSWHubFrame.install(mod, modDirectory)
         if frame[id] == nil then
             log:warn(("HubFrame: layout loaded without '%s', hub not installed"):format(id))
             return nil
+        end
+    end
+    -- The newer tabs are not required: without them the page still works.
+    for _, id in ipairs({ "forecastList", "historyList" }) do
+        if frame[id] == nil then
+            log:warn(("HubFrame: layout loaded without '%s'; that tab will be empty"):format(id))
         end
     end
 
