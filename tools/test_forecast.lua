@@ -21,6 +21,7 @@
      12. the history: order, cap, status, text
      13. saving and loading
      14. the hub's market view: pre-moves and verdict news
+     15. what the player pays: shop items, helper refills, the fuel pump
 
     Run:  lua tools/test_forecast.lua
 ]]
@@ -456,9 +457,10 @@ check("experts are right exactly as often as they say", honest, list(shares))
 -- ===========================================================================
 print("\n[9] about one forecast a year")
 
-local function simulate(dpm, years)
+local function simulate(dpm, years, frequency)
     math.randomseed(4242 + dpm)
     local eng = MSWForecastEngine.new(fc, config, baseCalendar, log)
+    if frequency ~= nil then eng:setFrequency(frequency) end
     local starts, sameOpen, minGap, lastStart = 0, false, math.huge, nil
     local byId = {}
     for day = 1, years * 12 * dpm do
@@ -488,6 +490,19 @@ for _, def in ipairs(fc.forecasts) do
     if (byId1[def.id] or 0) < 20 then allSeen = false end
 end
 check("every forecast gets its turn", allSeen)
+
+-- The player's "Forecasts per year" setting.
+local rateHalf, _, gapHalf = simulate(1, 600, 0.5)
+local rateDouble, sameDouble, gapDouble = simulate(1, 600, 2)
+check("the setting at 0.5 gives about half as many",
+      rateHalf > rate1 * 0.4 and rateHalf < rate1 * 0.65, ("%.2f vs %.2f"):format(rateHalf, rate1))
+check("the setting at 2 gives clearly more, and still never two of a kind",
+      rateDouble > rate1 * 1.5 and not sameDouble, ("%.2f vs %.2f"):format(rateDouble, rate1))
+check("the quiet time between forecasts scales with it",
+      gapHalf >= 18 and gapDouble >= 4.5 and gapDouble < 9,
+      ("%s / %s"):format(tostring(gapHalf), tostring(gapDouble)))
+local rateZero = simulate(1, 100, 0)
+check("at zero no forecast is ever announced", rateZero == 0)
 
 local blockedEngine = MSWForecastEngine.new(fc, config, baseCalendar, log)
 math.randomseed(1)
@@ -701,6 +716,79 @@ local after = MSWMarketView.build(pm14, 32, {})
 check("an event a forecast started is in the news under the verdict's headline",
       #after.events == 1 and after.events[1].titleKey == "msw_fc_sawmill_open_stronger_title"
       and after.events[1].textKey == "msw_fc_sawmill_open_stronger_text")
+
+-- ===========================================================================
+print("\n[15] what the player PAYS for inputs")
+
+-- Stand-ins for the game: its price functions, its fill types, its shop items.
+Utils = { overwrittenFunction = function(old, new)
+    return function(self, ...) return new(self, old, ...) end
+end }
+local FILL = { FERTILIZER = 11, LIME = 12, SEEDS = 13, HERBICIDE = 14, DIESEL = 15, WHEAT = 16 }
+g_fillTypeManager = { getFillTypeIndexByName = function(_, name) return FILL[name] end }
+SellingStation = { getEffectiveFillTypePrice = function() return 100 end }
+EconomyManager = {
+    getPricePerLiter = function() return 2 end,
+    getCostPerLiter = function() return 3 end,
+    -- Returns two values, the second nil-able, like a real price function might.
+    getBuyPrice = function(_, storeItem) return storeItem.price, storeItem.extra end,
+}
+local specLoads = 0
+StoreItemUtil = { loadSpecsFromXML = function(item)
+    specLoads = specLoads + 1
+    item.specs = { fillTypes = { fillTypeNames = item.holds } }
+end }
+
+load("game/EconomyAdapter.lua")
+local payModel = { mods = { [11] = 1.20, [15] = 1.50 },
+                   getModifier = function(self, index) return self.mods[index] or 1.0 end }
+local pay = EconomyAdapter.new(payModel, log)
+pay:install()
+local manager = {}
+
+local fertBag   = { price = 1000, holds = "fertilizer", categoryNames = { "BIGBAGS", "PALLETFERTILIZERHERBICIDE" } }
+local limeBag   = { price = 500,  holds = "lime", categoryNames = { "bigbags" } }
+local spreader  = { price = 40000, holds = "fertilizer lime", categoryNames = { "FERTILIZERSPREADERS" } }
+local fuelTank  = { price = 9000, holds = "diesel", categoryNames = { "TRAILERS" } }
+local mixedPal  = { price = 800,  holds = "fertilizer seeds", categoryNames = { "PALLETS" } }
+local usedBag   = { price = 1000, holds = "fertilizer", categoryNames = { "BIGBAGS" } }
+
+check("a big bag of fertiliser costs more in the shop while fertiliser is up",
+      EconomyManager.getBuyPrice(manager, fertBag) == 1200, tostring(EconomyManager.getBuyPrice(manager, fertBag)))
+check("a product no event is moving keeps its price", EconomyManager.getBuyPrice(manager, limeBag) == 500)
+check("a machine that can carry fertiliser does not", EconomyManager.getBuyPrice(manager, spreader) == 40000)
+check("a fuel trailer is a machine, even though it holds one product",
+      EconomyManager.getBuyPrice(manager, fuelTank) == 9000)
+check("a pallet of several products is left alone", EconomyManager.getBuyPrice(manager, mixedPal) == 800)
+check("a used-market item keeps its own price",
+      EconomyManager.getBuyPrice(manager, usedBag, nil, { some = "sale" }) == 1000)
+
+local a, b = EconomyManager.getBuyPrice(manager, { price = 10, extra = "kept", holds = "wheat",
+                                                   categoryNames = { "PALLETS" } })
+check("every value the game's function returns is passed on", a == 10 and b == "kept")
+local n = select("#", EconomyManager.getBuyPrice(manager, fertBag))
+check("including a trailing nil", n == 2)
+
+local before = specLoads
+EconomyManager.getBuyPrice(manager, fertBag)
+EconomyManager.getBuyPrice(manager, spreader)
+check("what an item holds is looked up once, and not at all for machines", specLoads == before)
+
+check("a helper refilling on the go pays the moved price",
+      near(EconomyManager.getCostPerLiter(manager, 11), 3 * 1.20) and EconomyManager.getCostPerLiter(manager, 12) == 3)
+check("the fuel pump pays the moved price", near(EconomyManager.getPricePerLiter(manager, 15), 2 * 1.50))
+
+pay:setEnabled(false)
+check("with the mod switched off the shop charges the normal price",
+      EconomyManager.getBuyPrice(manager, fertBag) == 1000 and EconomyManager.getCostPerLiter(manager, 11) == 3)
+pay:setEnabled(true)
+
+-- verifyHooks() may run install() again; the purchase hooks must not stack.
+pay.installed = false
+pay:install()
+check("installing twice does not apply the change twice",
+      EconomyManager.getBuyPrice(manager, fertBag) == 1200
+      and near(EconomyManager.getCostPerLiter(manager, 11), 3 * 1.20))
 
 print(("\n===== %d passed, %d failed =====\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

@@ -66,6 +66,8 @@ local DEFAULTS = {
     -- Forecasts (speculation). Off stops NEW forecasts; one already announced
     -- still gets its verdict.
     forecasts = 1,
+    -- How many forecasts arrive in an average year, when they are on.
+    forecastsPerYear = 1.0,
 
     catCrops = 1, catGreenhouse = 1, catTrade = 1,
     catBiofuel = 1, catWinter = 1, catSupplies = 1,
@@ -77,6 +79,7 @@ local LIMITS = {
     enabled                = { 0, 1,  true },
     showMarkers            = { 0, 1,  true },
     forecasts              = { 0, 1,  true },
+    forecastsPerYear       = { 0, 3,  false },
     catCrops               = { 0, 1,  true },
     catGreenhouse          = { 0, 1,  true },
     catTrade               = { 0, 1,  true },
@@ -206,6 +209,9 @@ local MENU_SPEC = {
     { name = "showMarkers",            kind = "bool" },
 
     { name = "forecasts",              kind = "bool" },
+
+    { name = "forecastsPerYear",       kind = "choice",
+      values = { 0.5, 1, 1.5, 2 } },
 
     -- Event categories, matching the category attribute in events.xml.
     { name = "catCrops",      kind = "bool" },

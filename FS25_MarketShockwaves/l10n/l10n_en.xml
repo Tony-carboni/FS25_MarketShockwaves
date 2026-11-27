@@ -468,6 +468,8 @@
         <text name="msw_hub_status_wrongReason" text="True, other cause"/>
         <text name="msw_hub_status_backfire" text="Backfired"/>
         <text name="msw_setting_forecasts" text="Forecasts"/>
+        <text name="msw_setting_forecastsPerYear" text="Forecasts per year"/>
+        <text name="msw_tooltip_forecastsPerYear" text="How many forecasts arrive in an average year. A forecast runs for a long time, from its message through its verdict to the end of its effect, so more than about two a year is not possible: a new one cannot open while its own market is still settling."/>
         <text name="msw_tooltip_forecasts" text="Market changes announced months ahead by suppliers, analysts and forecasters, with a stated confidence. They are timed by this map's crop calendar so there is time to change what you plant, and they are never certain. Switching this off stops new forecasts; one already announced still gets its verdict."/>
         <text name="msw_month_1" text="Jan"/>
         <text name="msw_month_2" text="Feb"/>

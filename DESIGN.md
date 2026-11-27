@@ -398,7 +398,7 @@ run across the top, the way the game's own statistics page does it:
 | **Market** | *In the news*: every running event, newest first, under the title it was announced with. *Prices on the move*: every product whose price has moved 1% or more today, largest first. Selecting a news item shows its full message again; selecting a product shows which events are behind it. |
 | **Forecasts** | every forecast that has been announced and is still undecided, with its opening message. The status reads *Open*, or *Verdict close* once its pre-move has begun. Nothing about the outcome. |
 | **History** | every message the mod has shown, newest first: date, kind (event, forecast, verdict, info), title and a one-word status. Selecting a row shows the message again. Kept with the savegame, the last 200. A forecast's row gains its outcome only once the verdict has happened. |
-| **Settings** | the sixteen settings. |
+| **Settings** | the seventeen settings. |
 
 The first three tabs share one layout and one piece of code (`LISTS` in
 `HubFrame.lua`): a list on the left, the selected row's text on the right.
@@ -458,7 +458,7 @@ Three decisions worth recording:
    instance method shadows the class one, so no other mod patching
    `InGameMenuSettingsFrame` can collide with us.
 2. **Every row is a `MultiTextOption`, booleans included** (Off/On). One code
-   path covers all sixteen settings, and it matches how most of the game's own
+   path covers all seventeen settings, and it matches how most of the game's own
    rows are built.
 3. **A clone carries the template's `onClickCallback` and `target`**, which point
    at a real base-game handler. Both are overwritten — otherwise changing a mod
@@ -471,6 +471,31 @@ is an acceptable failure, a broken settings page is not.
 "Events per year" replaces an abstract frequency multiplier — the player just
 types how often they want events, and `K = E / Σ baseWeight` distributes that
 budget across the roster (per event = `E × baseWeight / Σ baseWeight`).
+
+---
+
+## What the player pays (purchase prices)
+
+Until b24 the mod only moved what a selling point PAYS. Farm inputs are mostly
+bought, not sold, so an input shock showed in the Market tab and changed nothing
+the player was charged (seen in game on b22, savegame3). The game charges for
+goods by three routes, each seen in its own scripts:
+
+| Route | Game function | Hooked |
+|---|---|---|
+| Fuel pump, filling points (`FillTrigger`) | `economyManager:getPricePerLiter(fillType)` | since the start |
+| A helper refilling a seeder, sprayer or tank on the go | `economyManager:getCostPerLiter(fillType)` | b24 |
+| Big bags, pallets and tanks in the shop | `economyManager:getBuyPrice(storeItem, configurations, saleItem)` | b24 |
+
+The shop charges by ITEM, so the item is matched to what it holds: a shop item
+in a consumable category (`bigbags`, `bigbagPallets`, `ibc`, `pallets`) whose
+fill unit lists exactly one fill type, read from the same data the shop uses for
+its fill-type icons (`StoreItemUtil.loadSpecsFromXML`, `specs.fillTypes`). A bag
+of fertiliser costs more during an input shock; a spreader, a fuel trailer or a
+used-market item does not. Items holding several products are left alone.
+
+NOT YET CONFIRMED IN GAME: that the shop's list shows the changed price and not
+only the purchase dialog, and that the fuel pump really charges more.
 
 ---
 
@@ -579,9 +604,17 @@ never sees them, and neither do the tools that document the random roster.
 
 ### Rate
 
-`forecastsPerYear` 3.0 is the roll rate before a nine-month cooldown; together
-they give about 0.9 forecasts a year at any season length. At most two are open
-at once, never two of one kind.
+`forecastsPerYear` 4.0 is the roll rate before a nine-month cooldown; together
+they give about 0.94 forecasts a year at any season length. At most two are
+open at once, never two of one kind.
+
+The player's **Forecasts per year** setting (0.5, 1, 1.5 or 2; added in b23)
+scales this: the roll rate is multiplied by it and the cooldown divided by it,
+and up to twice the setting may be open at once. Measured over 3,000 simulated
+years with the random events running: 0.51, 0.94, 1.42 and 1.75 a year. The top
+value falls short of 2 because a forecast cannot open while its own event is
+still running. The spike figures below were measured before this change, at
+0.87 a year.
 
 ### Do forecasts cause spikes? (30,000 simulated years)
 
@@ -600,8 +633,9 @@ forecasts, most came from ONE combination: a severe winter that comes in
 "stronger" starts both the feed event and Harsh Winter at high severity, and
 both push silage (Harsh Winter through its biogas link). That is a designed
 double hit, not an unlucky overlap. Capping the companion Harsh Winter at medium
-severity brings +100% years down to 0.07% and +75% years to 0.95%; proposed to
-the owner, not applied.
+severity would bring +100% years down to 0.07% and +75% years to 0.95%. The
+owner decided against the cap: an extreme winter together with a feed shortage
+may produce a short period of extreme pricing, and that is accepted.
 
 ### Not yet confirmed in game
 

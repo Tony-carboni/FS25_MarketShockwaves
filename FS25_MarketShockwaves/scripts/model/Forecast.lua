@@ -81,7 +81,7 @@ function MSWForecastDef.defaultSettings()
     return {
         -- Roll rate BEFORE the cooldown. With nine quiet months after each
         -- forecast this comes out at about one forecast a year.
-        forecastsPerYear = 3.0,
+        forecastsPerYear = 4.0,
         cooldownMonths   = 9,
         maxOpen          = 2,
         minLeadMonths    = 4,
@@ -280,7 +280,21 @@ function MSWForecastEngine.new(fc, eventConfig, calendarOf, logger)
     self.lastStartDay = nil
     self.tipShown = false       -- the one-time explanation of speculation
     self.timingCache = {}
+    self.frequency = 1.0        -- the player's "forecasts per year" setting
     return self
+end
+
+--- The player's "forecasts per year" setting. The config is tuned for one a
+--- year; this scales it: the roll rate goes up and the quiet time between
+--- forecasts comes down by the same factor, and more may be open at once.
+function MSWForecastEngine:setFrequency(perYear)
+    if type(perYear) ~= "number" or perYear < 0 then perYear = 1.0 end
+    self.frequency = perYear
+end
+
+function MSWForecastEngine:getMaxOpen()
+    local base = self.fc.settings.maxOpen or 2
+    return math.max(base, math.ceil(2 * self.frequency))
 end
 
 --- Forget cached timings: the crop calendar is only readable once a map is in.
@@ -426,14 +440,15 @@ end
 function MSWForecastEngine:dailyProbability(entry, month, daysPerMonth, totalWeight)
     if totalWeight <= 0 or daysPerMonth <= 0 then return 0 end
     if not entry.timing.arrive[month] then return 0 end
-    local rate = self.fc.settings.forecastsPerYear or 0
+    local rate = (self.fc.settings.forecastsPerYear or 0) * self.frequency
     return rate * (entry.def.weight * entry.share) / totalWeight
            / entry.timing.numArrive / daysPerMonth
 end
 
 function MSWForecastEngine:getCooldownRemaining(day, daysPerMonth)
     if self.lastStartDay == nil then return 0 end
-    local cooldownDays = (self.fc.settings.cooldownMonths or 0) * daysPerMonth
+    if self.frequency <= 0 then return 0 end
+    local cooldownDays = (self.fc.settings.cooldownMonths or 0) / self.frequency * daysPerMonth
     local since = day - self.lastStartDay
     if since >= cooldownDays then return 0 end
     return cooldownDays - since
@@ -450,8 +465,9 @@ end
 --- @param isBlocked function|nil (def, variant) -> true to skip it today
 --- @return table|nil { def, variant, timing }
 function MSWForecastEngine:rollStart(day, month, daysPerMonth, isBlocked)
+    if self.frequency <= 0 then return nil end
     if self:getCooldownRemaining(day, daysPerMonth) > 0 then return nil end
-    if #self.open >= (self.fc.settings.maxOpen or 2) then return nil end
+    if #self.open >= self:getMaxOpen() then return nil end
 
     local available = self:getAvailable()
     local totalWeight, seen = 0, {}

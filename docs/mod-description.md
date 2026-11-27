@@ -1,7 +1,9 @@
 # Market Shockwaves — store description
 
-Copy for ModHub / KingMods / Steam Workshop listings. Three versions below:
-a one-liner, a short blurb, and the full page copy.
+Copy for ModHub / KingMods / Steam Workshop listings and for forum posts. Five
+versions below: a one-liner, a short blurb, a short description for forum posts,
+a plain-text description for ModHub, and the full page copy. Current for version
+0.9.2.0. A separate guide for video makers is in `docs/creator-guide.md`.
 
 **Written to preserve the surprise.** The whole design rests on the player not
 knowing how big an event is or how long it will run, so this copy names no
@@ -14,8 +16,9 @@ about how one behaves.
 
 ## One-liner
 
-Droughts, embargoes and bumper harvests that move market prices for months —
-and ripple down the production chain.
+Droughts, embargoes and bumper harvests that move market prices for months and
+ripple down the production chain, with forecasts that let you plant for next
+year's market and find out whether the experts were right.
 
 ---
 
@@ -24,8 +27,83 @@ and ripple down the production chain.
 Market Shockwaves gives the economy a memory. Seasonal events — a drought, a
 dairy embargo, an ethanol boom — push prices along a curve that builds, holds,
 and corrects when the new harvest lands. Shocks travel downstream: wheat first,
-then flour, then bread, each later and softer than the last. Nineteen events, and
-no two alike.
+then flour, then bread, each later and softer than the last. Forecasts announce
+next year's market months ahead, and are never certain. Nineteen events, six
+forecasts, and no two alike.
+
+---
+
+## Short description for forum posts (~130 words)
+
+**Market Shockwaves** makes selling a decision again.
+
+Market events move prices for months at a time: droughts, bumper harvests,
+embargoes, export booms, hard winters, a pandemic. Each one builds, holds and
+corrects along its own curve, and the shock travels down the production chain,
+so wheat moves first, then flour, then bread. You are told what happened. You
+are never told how big it gets or how long it lasts.
+
+New in 0.9.2.0: **forecasts**. Analysts tell you months ahead what they expect
+for next year's wheat, oilseeds, corn, potatoes, timber or winter feed, and how
+sure they are. They are timed by your map's own crop calendar, so you can still
+choose what to plant. Usually they are right. Sometimes everyone plants for the
+boom and it becomes a glut.
+
+Nineteen events, six forecasts, its own page in the ESC menu, works on any map.
+Singleplayer.
+
+---
+
+## ModHub description (plain text)
+
+ModHub's field takes plain text, so this version has no formatting. Check it
+against the length limit on the upload form before pasting; cut from the bottom
+if it is too long.
+
+```
+Market Shockwaves makes selling a decision again. Market events move prices for
+months at a time, and the shock travels down the production chain.
+
+EVENTS
+A drought, a bumper harvest, an export embargo, a hard winter, a pandemic: each
+one is announced with a market report and then moves prices along its own curve.
+Prices build, hold and correct when the new harvest lands. You are told what
+happened and which products are affected. You are never told how big it gets or
+how long it lasts.
+
+- 19 events in 7 categories: crops, greenhouse, trade, biofuel, winter,
+  supplies and consumer trends
+- Good and bad events are equally likely, and no two play out the same
+- Shocks ripple downstream: wheat first, then flour, then bread, each later and
+  softer than the last
+- Overlapping events stack, with diminishing returns
+
+FORECASTS
+Not every shock comes unannounced. Analysts and suppliers tell you months ahead
+what they expect, and how sure they are: mills short of wheat and oats, a
+biofuel vote, food processors expanding, a sawmill opening or closing, a hard
+winter on the way.
+
+- Timed by your map's own crop calendar, so a forecast arrives while you can
+  still decide what to plant and pays out at harvest
+- Never certain: it may hit harder or softer than predicted, or backfire when
+  everyone plants for the same boom
+- 6 forecasts, each in two directions
+
+IN THE MENU
+The mod has its own page in the ESC menu:
+- Market: what is in the news and which prices are moving today
+- Forecasts: what has been announced and is still undecided
+- History: every message the mod has shown you
+- Settings: frequency, intensity, duration, chain depth, price markers,
+  forecasts on or off, and a switch per event category
+
+GOOD TO KNOW
+- Works on any map and with map-specific crop calendars
+- Does not edit fill types; other price mods stack with it
+- Events, forecasts and settings are saved with the savegame
+- Singleplayer only for now
+```
 
 ---
 
@@ -218,23 +296,66 @@ long enough and you will still be caught out.
 
 ### Forecasts
 
-Not every shock arrives unannounced. About once a year, suppliers, analysts or
-forecasters tell you what they expect, months ahead, and how sure they are:
-mills running short of wheat and oats, a biofuel vote, a sawmill opening or
-closing, a hard winter on the way.
+An event is a surprise: you react to it. A forecast is the opposite. It gives
+you time to change your plans, and no guarantee.
 
-A forecast is timed by your map's own crop calendar, so it always arrives while
-you can still decide what to plant, and pays out when that crop is harvested.
-Then you wait. Prices do nothing for months, edge the forecast way just before
-the verdict, and then the verdict lands.
+About once a year, suppliers, analysts or forecasters tell you what they expect,
+months ahead, and how sure they are:
 
-The experts are usually right. Sometimes it hits harder or softer than they
-said. And sometimes everyone plants for the boom, and the boom becomes a glut.
+> **Mills Eye Next Year's Grain**
+> Flour mills and cereal makers report that their reserves are running thin, and
+> analysts expect them to compete hard for wheat and oats by next harvest. If
+> that holds, both will fetch noticeably more than they do today. Experts largely
+> agree. Wheat goes in this autumn, and oats follow in spring.
+
+**It arrives while you can still act.** A forecast is timed by your map's own
+crop calendar: the message comes before sowing opens, and the outcome lands when
+that crop is harvested. On a map with different seasons, the forecasts move with
+them.
+
+**Then you wait.** Prices do nothing for months. Just before the verdict they
+edge the way the analysts called it, which tells you the answer is close but
+not what it is. Then the verdict lands, and from that moment it is a real market
+event that lasts until the next harvest and runs down the production chain like
+any other.
+
+**The experts are usually right, and say how sure they are.** "The majority
+seems to agree" is a weaker promise than "experts are unanimous", and it means
+exactly what it says. Sometimes it hits harder or softer than predicted. And
+sometimes everyone plants for the boom, and the boom becomes a glut:
+
+> **Grain Glut**
+> Even experts can be wrong, it seems. Everyone planted for the grain boom, and
+> harvests are fatter than ever. Silos are overflowing, and mills are naming
+> their price.
+
+**Six forecasts, each in two directions:**
+
+- **Milling grains** — wheat and oats, with flour, bread, cereal, straw and hay
+  behind them.
+- **Vegetable oil** — canola and sunflower, and their oils.
+- **Biofuel policy vote** — corn and soybean.
+- **Food processors** — potatoes, sugar beet and sugarcane, with chips and sugar.
+- **A sawmill opening or closing** — timber one way; boards, planks, beams and
+  wood chips the other.
+- **Winter feed outlook** — a hard winter lifts silage, hay, grass and straw, and
+  energy with them; a long grazing season does the reverse.
+
 Planting, holding or selling on a forecast is a gamble; how much you stake is
 up to you.
 
-Open forecasts, and every message the mod has ever shown you, are on the
-**Market Shockwaves** page in the ESC menu.
+### The Market Shockwaves page
+
+The mod has its own page in the ESC menu, with four tabs:
+
+- **Market** — what is in the news right now, and every product whose price is
+  moving today. Select a product to see what is behind it.
+- **Forecasts** — what has been announced and is still undecided.
+- **History** — every message the mod has shown you, with its date, so nothing is
+  lost if you clicked a report away too quickly.
+- **Settings** — below.
+
+None of it tells you how an event or a forecast will end.
 
 ### Settings
 
@@ -253,6 +374,7 @@ tab shows what is in the news and which prices are moving today.
 | Supply chain effects | Caps how far ripples climb — raw crops only, or all the way up. |
 | Show price markers | Adds the current change to affected commodity names. |
 | Forecasts | Switches forecasts on or off. One already announced still gets its verdict. |
+| Forecasts per year | How many forecasts arrive in an average year. |
 | Event categories | Seven independent toggles. |
 
 Want a wilder market? Turn intensity and frequency up. Want the occasional
@@ -309,8 +431,11 @@ your `log.txt`.
   ripple timings anywhere player-facing — screenshots, changelog, forum replies.
   Someone who knows a severe event's ceiling has lost the decision the mod is
   built around.
-- ModHub's description field is plain text: flatten the settings table to
-  `Setting — description` lines and drop the code fence around the chain.
+- ModHub's description field is plain text: use the ready-made plain-text
+  version above, not the full page copy.
+- The harsh winter is described as hitting running costs. Whether the mod moves
+  the price PAID for diesel and inputs, and not only the selling price, has not
+  been confirmed in game; check before leaning on that line in a listing.
 - KingMods and Steam accept BBCode: `[b]…[/b]` for headings, `[list]` for
   bullets. Steam supports `[table]`; KingMods doesn't.
 - Good screenshots: the event message dialog, and the price list with markers

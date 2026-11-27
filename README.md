@@ -218,7 +218,7 @@ adapting this the same way this project was blocked from adapting someone else's
 | `python3 tools/roster_report.py --markdown` | month-by-month view of the whole roster |
 | `lua tools/test_model.lua` | 148 offline tests of the curve, ripple, scheduler, stacking, mutual exclusion, opposite products, commodity markers, short-season behaviour, the welcome message and the hub's market view |
 | `lua tools/test_settings_menu.lua` | 49 offline tests of the settings rows, on the hub page and on the GAME SETTINGS fallback |
-| `lua tools/test_forecast.lua` | 108 offline tests of forecasts, the crop calendar and the message history, run against the real config and l10n files |
+| `lua tools/test_forecast.lua` | 125 offline tests of forecasts, the crop calendar, the message history and what the player pays for inputs, run against the real config and l10n files |
 | `lua tools/sim_forecast_spikes.lua [years]` | simulate many years with and without forecasts and report price spikes |
 
 The `*_sim.py` scripts are the Python simulators the Lua model was validated

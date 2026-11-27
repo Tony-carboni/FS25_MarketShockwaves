@@ -41,7 +41,7 @@ local SAVEGAME_KEY = "marketShockwaves"
 -- Bumped on every test build that gets zipped. Logged unconditionally, because
 -- a stale install once cost a full round trip of diagnosis: the log looked like
 -- a code bug when the game was simply running yesterday's files.
-local BUILD = "b22"
+local BUILD = "b24"
 
 -- msw_welcome_p1 .. pN in the l10n file.
 local WELCOME_PARAGRAPHS = 5
@@ -441,6 +441,7 @@ function MarketShockwaves:stepForecasts(day, dpm, month)
 
     if not self.settings:isOn("forecasts") then return end
 
+    self.forecasts:setFrequency(self.settings:get("forecastsPerYear"))
     local entry = self.forecasts:rollStart(day, month, dpm, function(def, variant)
         return self:isForecastBlocked(variant, day)
     end)
@@ -872,8 +873,9 @@ function MarketShockwaves:consoleForecasts()
     local day = self.calendar:getDay()
     local dpm = self.calendar:getDaysPerMonth()
     local out = { "--- Market Shockwaves forecasts ---",
-                  ("forecasts %s; cooldown %.1f day(s) left")
+                  ("forecasts %s, %s per year; cooldown %.1f day(s) left")
                       :format(self.settings:isOn("forecasts") and "ON" or "OFF",
+                              tostring(self.settings:get("forecastsPerYear")),
                               self.forecasts:getCooldownRemaining(day, dpm)) }
     out[#out + 1] = "open:"
     for _, f in ipairs(self.forecasts:getOpen()) do

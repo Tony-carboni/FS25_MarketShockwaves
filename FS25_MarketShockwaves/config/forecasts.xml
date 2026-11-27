@@ -36,8 +36,13 @@
 -->
 <forecasts>
     <settings>
-        <!-- Roll rate before the cooldown; with it, about one forecast a year. -->
-        <forecastsPerYear value="3.0"/>
+        <!-- Roll rate before the cooldown; with it, about one forecast a year.
+             The player's "Forecasts per year" setting scales both: the rate up
+             and the cooldown down by the same factor. Measured over 3,000
+             simulated years: setting 0.5 gives 0.51, 1 gives 0.94, 1.5 gives
+             1.42, 2 gives 1.75 (a forecast cannot open while its own event is
+             still running, which holds the top end back). -->
+        <forecastsPerYear value="4.0"/>
         <cooldownMonths value="9"/>
         <maxOpen value="2"/>
         <!-- THE ACTIONABILITY CHECK: fewer months than this between the message

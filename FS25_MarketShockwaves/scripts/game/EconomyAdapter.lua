@@ -110,7 +110,135 @@ function EconomyAdapter:install()
                    .. "(price displays may not reflect events)")
     end
 
+    self:installPurchaseHooks()
     self.installed = true
+end
+
+-- ---------------------------------------------------------------------------
+-- What the player PAYS
+-- ---------------------------------------------------------------------------
+--
+-- The hooks above move what a selling point pays. Farm inputs are mostly not
+-- sold, they are bought, and the game charges for them by three routes, each
+-- seen in the game's own scripts:
+--
+--   * a fill trigger (the fuel pump, a filling point) charges
+--     economyManager:getPricePerLiter(fillType) - already hooked above;
+--   * a helper who refills a seeder, sprayer or fuel tank on the go charges
+--     economyManager:getCostPerLiter(fillType);
+--   * the shop charges economyManager:getBuyPrice(storeItem, ...) for a big
+--     bag, pallet or tank.
+--
+-- The last one is by ITEM, not by fill type, so the item has to be matched to
+-- what it holds: a shop item in one of the consumable categories whose fill
+-- unit holds exactly one fill type. A bag of fertiliser costs more during an
+-- input shock; a fertiliser spreader does not.
+
+--- Shop categories that are a quantity of goods, not a machine.
+EconomyAdapter.CONSUMABLE_CATEGORIES = {
+    BIGBAGS = true, BIGBAGPALLETS = true, IBC = true, PALLETS = true,
+}
+
+local function isConsumable(storeItem)
+    for _, name in ipairs(storeItem.categoryNames or {}) do
+        if EconomyAdapter.CONSUMABLE_CATEGORIES[tostring(name):upper()] then return true end
+    end
+    return false
+end
+
+--- The one fill type a shop item holds, or nil when it is not a single-product
+--- consumable. `fillTypeNames` is the list the game builds for the shop's own
+--- fill-type icons.
+function EconomyAdapter:getStoreItemFillType(storeItem)
+    if type(storeItem) ~= "table" then return nil end
+    self.storeItemFillTypes = self.storeItemFillTypes or setmetatable({}, { __mode = "k" })
+    local cached = self.storeItemFillTypes[storeItem]
+    if cached ~= nil then return cached ~= false and cached or nil end
+
+    local index = nil
+    pcall(function()
+        if not isConsumable(storeItem) then return end
+        if storeItem.specs == nil and StoreItemUtil ~= nil
+           and StoreItemUtil.loadSpecsFromXML ~= nil then
+            StoreItemUtil.loadSpecsFromXML(storeItem)
+        end
+        local spec = storeItem.specs ~= nil and storeItem.specs.fillTypes or nil
+        if type(spec) ~= "table" or type(spec.fillTypeNames) ~= "string" then return end
+        local only, count = nil, 0
+        local seen = {}
+        for name in spec.fillTypeNames:gmatch("%S+") do
+            local upper = name:upper()
+            if not seen[upper] then
+                seen[upper] = true
+                only = upper
+                count = count + 1
+            end
+        end
+        if count == 1 then index = self:getFillTypeIndex(only) end
+    end)
+
+    self.storeItemFillTypes[storeItem] = index or false
+    return index
+end
+
+--- Multiplier for a shop item's price today: 1.0 for anything but a
+--- single-product consumable whose product an event is moving.
+function EconomyAdapter:getStoreItemModifier(storeItem)
+    if not self.enabled then return 1.0 end
+    local index = self:getStoreItemFillType(storeItem)
+    if index == nil then return 1.0 end
+    return self:getModifier(index)
+end
+
+local unpackValues = table.unpack or unpack
+local function packValues(...) return { ... }, select("#", ...) end
+
+--- Hook the two purchase routes that are not covered by getPricePerLiter.
+--- Installed once: verifyHooks() may call install() again, and wrapping these
+--- twice would apply the modifier twice.
+function EconomyAdapter:installPurchaseHooks()
+    if self.purchaseHooksInstalled then return end
+    self.purchaseHooksInstalled = true
+    local adapter = self
+
+    if EconomyManager ~= nil and EconomyManager.getCostPerLiter ~= nil then
+        EconomyManager.getCostPerLiter = Utils.overwrittenFunction(
+            EconomyManager.getCostPerLiter,
+            function(manager, superFunc, fillTypeIndex, ...)
+                local base = superFunc(manager, fillTypeIndex, ...)
+                if type(base) ~= "number" then return base end
+                return base * adapter:getModifier(fillTypeIndex)
+            end
+        )
+        self.log:info("EconomyAdapter: hooked EconomyManager.getCostPerLiter (helper refills)")
+    else
+        self.log:warn("EconomyAdapter: EconomyManager.getCostPerLiter not found "
+                   .. "(helper refills will not reflect events)")
+    end
+
+    if EconomyManager ~= nil and EconomyManager.getBuyPrice ~= nil then
+        EconomyManager.getBuyPrice = Utils.overwrittenFunction(
+            EconomyManager.getBuyPrice,
+            function(manager, superFunc, storeItem, configurations, saleItem, ...)
+                -- Every return value is passed on as it came, nils included.
+                local results, count = packValues(
+                    superFunc(manager, storeItem, configurations, saleItem, ...))
+                -- New goods only: a used-market item has its own price.
+                if type(results[1]) == "number" and saleItem == nil then
+                    local modifier = adapter:getStoreItemModifier(storeItem)
+                    if modifier ~= 1.0 then
+                        results[1] = math.floor(results[1] * modifier + 0.5)
+                    end
+                end
+                return unpackValues(results, 1, count)
+            end
+        )
+        self.log:info("EconomyAdapter: hooked EconomyManager.getBuyPrice "
+                   .. "(big bags, pallets and tanks in the shop)")
+    else
+        self.log:warn("EconomyAdapter: EconomyManager.getBuyPrice not found "
+                   .. "(shop prices of inputs will not reflect events)")
+    end
 end
 
 --- Check our hooks are still in place, and reinstall if not.
