@@ -119,6 +119,21 @@ function MSWActiveEvent.buildReach(def, sev, daysPerMonth, depthCap, durationDay
         reach[name] = { lagDays = 0, passThrough = 1.0 }
     end
 
+    -- Opposite products: full timing, no lag, but a NEGATIVE pass-through, so
+    -- the same curve pushes them the other way at `oppositeScale` of the swing.
+    -- Registered before the chains, so the single-driver rule also stops a
+    -- chain from claiming one of them. They are direct products, so neither the
+    -- severity's ripple depth nor the player's supply-chain setting removes
+    -- them.
+    if def.opposite ~= nil then
+        local oppositeScale = def.oppositeScale or 0.5
+        for _, name in ipairs(def.opposite) do
+            if reach[name] == nil then
+                reach[name] = { lagDays = 0, passThrough = -oppositeScale }
+            end
+        end
+    end
+
     -- Iterate by tier so a hop's parent is always resolved before it.
     for tier = 1, maxDepth do
         for from, hops in pairs(def.chains) do

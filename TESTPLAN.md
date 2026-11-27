@@ -158,14 +158,19 @@ Write down: whether the marker appeared.
 
 ## 7. The settings menu (confirmed — steps 4–7 still unrun)
 
-Open **ESC → Settings**. The page defaults to the **GAME SETTINGS** tab.
+Open the ESC menu and pick the **Market Shockwaves** tab in the left-hand
+column (it sits just above the settings tab). The page opens on its **Market**
+sub-tab; switch to **Settings**. NOT YET CONFIRMED IN GAME as of build b20 —
+the page was built against other mods' working ESC pages, not a live run.
 
-Scroll to the bottom, past `AI WORKERS`. There should be a
-**`MARKET SHOCKWAVES`** section header, then fourteen rows:
+If the log says `hub page unavailable`, the rows are instead at the bottom of
+**ESC → Settings → GAME SETTINGS**, under a `MARKET SHOCKWAVES` header.
+
+Either way there should be fifteen rows:
 
 ```
 Enable Market Shockwaves        On
-Events per year (average)       1.7
+Events per year (average)       2
 Minimum time between events     2
 Maximum events at once          3
 Event intensity                 100%
@@ -178,6 +183,7 @@ Trade events                    On
 Biofuel events                  On
 Winter events                   On
 Supply events                   On
+Consumer events                 On
 ```
 
 Check, in this order:

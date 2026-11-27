@@ -33,7 +33,8 @@ ABSENT_NOTE = (
 
 MONTHS = "jan feb mar apr may jun jul aug sep oct nov dec".split()
 SEVERITIES = ("low", "medium", "high")
-CATEGORIES = {"crops", "greenhouse", "trade", "biofuel", "winter", "supplies"}
+CATEGORIES = {"crops", "greenhouse", "trade", "biofuel", "winter", "supplies",
+              "consumer"}
 
 errors: list[str] = []
 warnings: list[str] = []
@@ -81,6 +82,17 @@ PROSE_NAMES = {
     "LIME": ["lime"],
     "DIESEL": ["diesel", "fuel"],
     "CLOTHES": ["clothing", "clothes"],
+    "SOUPCANSCARROTS": ["soup"],
+    "SOUPCANSPARSNIP": ["soup"],
+    "SOUPCANSBEETROOT": ["soup"],
+    "SOUPCANSPOTATO": ["soup"],
+    "SOUPCANSMIXED": ["soup"],
+    "NOODLESOUP": ["noodle soup", "soup"],
+    "PRESERVEDCARROTS": ["preserved"],
+    "PRESERVEDPARSNIP": ["preserved"],
+    "PRESERVEDBEETROOT": ["preserved"],
+    "CANNED_PEAS": ["canned peas", "canned"],
+    "JARRED_GREENBEAN": ["jarred"],
 }
 
 
@@ -196,6 +208,28 @@ def main() -> int:
             if total <= 0:
                 err(f"{where}: all month weights are zero — the event can never fire")
 
+        # ---- opposite ----
+        # Products the event moves AGAINST its own direction. They enter the
+        # reach map as direct products, so the same double-move rule applies as
+        # for chain targets, and no chain may hang off one of them.
+        opp = e.find("opposite")
+        opposite = (opp.text or "").split() if opp is not None else []
+        if opp is not None:
+            if not opposite:
+                err(f"{where}: <opposite> is empty")
+            scale = opp.get("scale")
+            if scale is not None and not (0 < float(scale) <= 1):
+                err(f"{where}: <opposite scale={scale}> must be within (0, 1]")
+            for name in opposite:
+                if name in affects:
+                    err(f"{where}: {name} is in both <affects> and <opposite> "
+                        f"— it cannot move both ways")
+                if fills is not None and name not in fills:
+                    warn(f"{where}: opposite {name}, which is not in the base "
+                         f"game fill types (fine if a map or DLC adds it)")
+            if len(set(opposite)) != len(opposite):
+                err(f"{where}: <opposite> lists a product twice")
+
         # ---- chains ----
         chains = e.find("chains")
         drivers: dict[str, str] = {}
@@ -224,6 +258,9 @@ def main() -> int:
             if dst in affects:
                 err(f"{where}: {dst} is both in <affects> and a chain target "
                     f"— it would move twice")
+            if dst in opposite or src in opposite:
+                err(f"{where}: chain {src}->{dst} touches an <opposite> product "
+                    f"— opposite products are direct and take no chains")
 
             for name in (src, dst):
                 if fills is not None and name not in fills:

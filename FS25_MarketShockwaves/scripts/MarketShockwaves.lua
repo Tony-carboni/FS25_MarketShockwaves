@@ -33,7 +33,7 @@ local SAVEGAME_KEY = "marketShockwaves"
 -- Bumped on every test build that gets zipped. Logged unconditionally, because
 -- a stale install once cost a full round trip of diagnosis: the log looked like
 -- a code bug when the game was simply running yesterday's files.
-local BUILD = "b18"
+local BUILD = "b21"
 
 -- msw_welcome_p1 .. pN in the l10n file.
 local WELCOME_PARAGRAPHS = 5
@@ -112,9 +112,15 @@ function MarketShockwaves:onStartMission(mission)
     self.economy:logPriceModNeighbours(self.modName)
     self:applySettingSideEffects()
 
-    -- The settings frame does not exist until a savegame is loaded, which is why
-    -- this is here and not at load time.
-    self.menu:install()
+    -- The ESC menu does not exist until a savegame is loaded, which is why this
+    -- is here and not at load time. The mod's own page carries the settings; the
+    -- rows on the GAME SETTINGS page are only the fallback for a game version
+    -- where that page cannot be added.
+    self.hub = MSWHubFrame ~= nil and MSWHubFrame.install(self, self.modDirectory) or nil
+    if self.hub == nil then
+        self.log:warn("hub page unavailable; settings stay under GAME SETTINGS")
+        self.menu:install()
+    end
 
     if MSWDiag ~= nil then
         MSWDiag.dumpPriceProbe(self.log, self.economy, self.diagProbeProducts())

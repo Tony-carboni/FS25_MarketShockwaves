@@ -30,7 +30,7 @@ end
 --- @return table config { eventsPerYear, severityChances, ripple, events = {defs} }
 function MSWEventDef.loadAll(path, log)
     local config = {
-        eventsPerYear   = 1.7,
+        eventsPerYear   = 2.0,
         severityChances = { low = 0.60, medium = 0.30, high = 0.10 },
         ripple          = { lagMonths = 1.0, passThrough = 0.60 },
         events          = {},
@@ -75,6 +75,13 @@ function MSWEventDef.loadAll(path, log)
         def.subtype    = getXMLString(xml, key .. "#subtype") or def.id
         def.baseWeight = getXMLFloat(xml, key .. "#baseWeight") or 1.0
         def.affects    = splitProducts(getXMLString(xml, key .. ".affects"))
+        -- Products this event moves the OTHER way, at `scale` times the swing.
+        -- A consumer trend has a winner and a loser: shoppers who fill their
+        -- baskets with fresh food leave the tins on the shelf. These are direct
+        -- products (no lag), they never feed a chain, and the scale is what
+        -- keeps the adverse side at the usual downtuned strength.
+        def.opposite      = splitProducts(getXMLString(xml, key .. ".opposite"))
+        def.oppositeScale = getXMLFloat(xml, key .. ".opposite#scale") or 0.5
 
         -- ---- month weights, normalised to shares -------------------------
         def.monthShare = {}

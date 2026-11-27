@@ -1,7 +1,7 @@
 --[[
     SettingsAdapter — the player-facing settings.
 
-    Fourteen settings, matching the in-game menu:
+    Fifteen settings, matching the in-game menu:
 
       MASTER
         enabled                 turn the whole mod off without uninstalling,
@@ -26,8 +26,9 @@
         showMarkers             the [+60%] suffix on commodity names. It also
                                 shows in the shop and HUD, hence the opt-out.
 
-      CATEGORIES  (six on/off switches, matching config/events.xml)
+      CATEGORIES  (seven on/off switches, matching config/events.xml)
         catCrops catGreenhouse catTrade catBiofuel catWinter catSupplies
+        catConsumer
 
     Values are held here and persisted with the savegame. Every consumer reads
     through this adapter, so the in-game menu only has to move these numbers -
@@ -41,7 +42,7 @@ local DEFAULTS = {
     enabled = 1,                    -- boolean settings are 0/1 so one code path
                                     -- covers every value the menu can hand back
 
-    eventsPerYear = 1.7,
+    eventsPerYear = 2.0,
     -- Minimum months between event STARTS. 2 leaves one whole month silent:
     --   April  event fires
     --   May    nothing can fire
@@ -64,6 +65,7 @@ local DEFAULTS = {
 
     catCrops = 1, catGreenhouse = 1, catTrade = 1,
     catBiofuel = 1, catWinter = 1, catSupplies = 1,
+    catConsumer = 1,
 }
 
 -- Per-setting bounds. Anything absent is treated as a 0..2 multiplier.
@@ -76,6 +78,7 @@ local LIMITS = {
     catBiofuel             = { 0, 1,  true },
     catWinter              = { 0, 1,  true },
     catSupplies            = { 0, 1,  true },
+    catConsumer            = { 0, 1,  true },
     eventsPerYear          = { 0, 50, false },
     minMonthsBetweenEvents = { 0, 12, false },
     maxConcurrentEvents    = { 1, 10, true },
@@ -88,6 +91,7 @@ local LIMITS = {
 local CATEGORY_SETTING = {
     crops = "catCrops", greenhouse = "catGreenhouse", trade = "catTrade",
     biofuel = "catBiofuel", winter = "catWinter", supplies = "catSupplies",
+    consumer = "catConsumer",
 }
 
 function MSWSettingsAdapter.new(logger)
@@ -153,6 +157,7 @@ function MSWSettingsAdapter.getCategories()
         { category = "biofuel",    setting = "catBiofuel" },
         { category = "winter",     setting = "catWinter" },
         { category = "supplies",   setting = "catSupplies" },
+        { category = "consumer",   setting = "catConsumer" },
     }
 end
 
@@ -202,6 +207,7 @@ local MENU_SPEC = {
     { name = "catBiofuel",    kind = "bool" },
     { name = "catWinter",     kind = "bool" },
     { name = "catSupplies",   kind = "bool" },
+    { name = "catConsumer",   kind = "bool" },
 }
 
 --- The menu rows, in display order.

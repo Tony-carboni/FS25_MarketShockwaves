@@ -24,7 +24,7 @@
     Two deliberate simplifications:
 
       * Every row is a MultiTextOption, booleans included (Off/On). One code
-        path covers all fourteen settings, and it matches how most of the game's
+        path covers all fifteen settings, and it matches how most of the game's
         own rows are built.
       * onFrameOpen is wrapped on the page INSTANCE, not on
         InGameMenuSettingsFrame. The instance method shadows the class one, so
@@ -130,8 +130,14 @@ local function findTooltip(option)
            end)
 end
 
+-- The base game's row, and the hub's own row which extends it.
+local ROW_PROFILES = {
+    fs25_multiTextOptionContainer = true,
+    msw_hubSettingsRow = true,
+}
+
 local function isRowContainer(e)
-    return e.profile == "fs25_multiTextOptionContainer"
+    return ROW_PROFILES[e.profile] == true
 end
 
 local function isSectionHeader(e)
@@ -212,9 +218,28 @@ end
 -- ---------------------------------------------------------------------------
 
 function MSWSettingsMenu:buildRows(frame)
-    local layout = frame.gameSettingsLayout
+    return self:buildRowsIn(frame.gameSettingsLayout, { where = "GAME SETTINGS", header = true })
+end
+
+--- Build the rows on the mod's own hub page.
+---
+--- The hub's layout carries one template row and one header, the same shapes
+--- the GAME SETTINGS page has, so the cloning code below serves both. There the
+--- templates are real base-game rows and must stay; here they exist only to be
+--- cloned, so they are hidden afterwards. No section header either: the whole
+--- page is ours, so there is nothing to tell the rows apart from.
+function MSWSettingsMenu:buildInto(layout)
+    return self:buildRowsIn(layout, { where = "the hub", header = false, hideTemplates = true,
+                                      altProfile = "msw_hubSettingsRowAlt" })
+end
+
+--- @param layout table a layout whose children include a row to clone
+--- @param opts table where (for the log), header, hideTemplates
+function MSWSettingsMenu:buildRowsIn(layout, opts)
+    opts = opts or {}
     if type(layout) ~= "table" or type(layout.elements) ~= "table" then
-        self.log:warn("SettingsMenu: gameSettingsLayout not found")
+        self.log:warn(("SettingsMenu: no settings layout for %s")
+            :format(tostring(opts.where or "?")))
         return false
     end
 
@@ -242,7 +267,7 @@ function MSWSettingsMenu:buildRows(frame)
 
     -- Section header, so the block is visibly ours and not mistaken for a
     -- base-game setting.
-    if headerTemplate ~= nil then
+    if headerTemplate ~= nil and opts.header ~= false then
         local header = headerTemplate:clone(layout)
         if header ~= nil then
             if header.setText ~= nil then
@@ -254,13 +279,28 @@ function MSWSettingsMenu:buildRows(frame)
 
     local built = 0
     for _, entry in ipairs(MSWSettingsAdapter.getMenuSpec()) do
-        if self:buildRow(layout, rowTemplate, entry) then built = built + 1 end
+        local before = #layout.elements
+        if self:buildRow(layout, rowTemplate, entry) then
+            built = built + 1
+            -- Band every second row, where the page asks for it.
+            local box = layout.elements[#layout.elements]
+            if opts.altProfile ~= nil and built % 2 == 0 and #layout.elements > before
+               and box ~= nil and box.applyProfile ~= nil then
+                box:applyProfile(opts.altProfile)
+            end
+        end
+    end
+
+    if opts.hideTemplates then
+        for _, template in ipairs({ rowTemplate, headerTemplate }) do
+            if template.setVisible ~= nil then template:setVisible(false) end
+        end
     end
 
     if layout.invalidateLayout ~= nil then layout:invalidateLayout() end
 
-    self.log:info(("SettingsMenu: added %d of %d rows to GAME SETTINGS")
-        :format(built, #MSWSettingsAdapter.getMenuSpec()))
+    self.log:info(("SettingsMenu: added %d of %d rows to %s")
+        :format(built, #MSWSettingsAdapter.getMenuSpec(), tostring(opts.where or "?")))
     return built > 0
 end
 

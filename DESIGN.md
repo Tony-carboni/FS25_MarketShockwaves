@@ -57,7 +57,7 @@ names.
   ```
 
   - `E` = the **"Events per year (average)"** user setting — total events/year
-    across all events. Default **1.7**; `0` disables all events.
+    across all events. Default **2.0**; `0` disables all events.
   - `D` = the player's **days-per-month** setting. The `/D` keeps the **annual**
     rate independent of month length (verified: ~1.70/yr at D = 1, 3, 10).
   - `monthWeight_e[month]` = a per-event 12-month profile; **0 = cannot trigger**
@@ -100,8 +100,12 @@ Measured effect (`tools/cooldown_sim.py`):
 | 3  | 1.88 | 1.71 | 1.49 | 1.33 |
 | 10 | 1.92 | 1.68 | 1.47 | 1.31 |
 
-The default of **2** costs about 0.2 events/year against the 1.7 target
-(≈1.5–1.6/yr) and buys a guaranteed silent month between every pair of events.
+The default of **2** costs about 0.2 events/year (the table above was measured
+at a target of 1.7, giving ≈1.5–1.6/yr) and buys a guaranteed silent month
+between every pair of events. The shipped default target has since been raised
+to **2.0** as the roster grew to 19 events, so that each event stays about as
+frequent as it was; a full simulation of the scheduler, including mirrored
+events blocking each other, puts the realised rate at about 1.6/yr.
 
 Note that **1 would be a no-op**: a one-month gap means events may fire in
 consecutive months, which is already possible — and at `daysPerMonth = 1` it
@@ -168,16 +172,45 @@ two events share a curve — players can't memorize the pattern (replayability).
 ## Stacking
 
 When multiple active events affect the same product, their factors combine
-**multiplicatively**: `effective = factor_A × factor_B × ...`. Two +20% events →
-`1.2 × 1.2 = 1.44` (+44%). Multiplicative stacking compounds naturally and can
-never drive a price to zero or negative.
+**multiplicatively, with diminishing returns**. Per product, the effects pushing
+the same way are ranked by today's size: the largest counts in full, the second
+at **60%**, the third and any later one at **30%**.
+
+`effective = (1 + d1) × (1 + 0.6·d2) × (1 + 0.3·d3) ...`
+
+| Overlap on one product | Plain multiplication | With 100 / 60 / 30 |
+|---|---|---|
+| two medium rises (+25%, +25%) | +56% | +44% |
+| two high rises (+70%, +70%) | +189% | +141% |
+| three high rises (+70%, +70%, +50%) | +334% | +178% |
+| two high falls (−32.5%, −32.5%) | −54% | −46% |
+| a rise against a fall (+70%, −32.5%) | +15% | +15% |
+
+Three rules make this behave:
+
+- **Ranked by size, not by arrival.** If the first event to start always counted
+  in full, the price would jump on the day it ended and the next was promoted.
+  Ranking by today's size has no jump: where two effects cross they are equal,
+  so swapping their weights changes nothing.
+- **Rises and falls are ranked separately.** A drought against a glut is two real
+  forces and still nets out in full; only effects pushing the *same* way dampen
+  one another.
+- **Per product.** A second event is only dampened on the products it shares; the
+  rest of its reach moves at full strength.
+
+The weights were chosen by simulation (30,000 years, 19 events, 1 day per
+month). Every candidate made a product at +100% or more a once-in-thousands-of-
+years sight; 100/60/30 kept the second event visibly meaningful (it adds 3 or
+more points in about three overlaps out of four) while cutting the largest rise
+seen from +183% to +137%. They live in `MSWPriceModel.STACK_WEIGHTS`. Stacking
+still can never drive a price to zero or negative.
 
 ### Mutual exclusion — what must never stack
 
 Two events sharing a **`subtype`** can never run at the same time. This exists for
 the **mirrored pairs**: an ethanol boom on top of an ethanol glut is not a
 compounding shock, it is the same market telling two opposite stories, and the
-ripple maths would have them fighting over the same products. Seven pairs are
+ripple maths would have them fighting over the same products. Eight pairs are
 grouped:
 
 | Subtype | Members |
@@ -189,6 +222,7 @@ grouped:
 | `asiaTrade` | asianTradeDisruption · monsoonBounty |
 | `ethanol` | ethanolGlut · ethanolBoom |
 | `greenhouse` | greenhousePest · greenhouseBounty |
+| `consumerShift` | pandemicCrisis · trendyLifestyle |
 
 **Alternating is fine** — the moment one expires the other is eligible again
 (subject to the normal cooldown). Only overlap is forbidden.
@@ -334,22 +368,66 @@ base normalizes.
 
 ## User settings (in-game menu)
 
-Fourteen settings, in **ESC → Settings → GAME SETTINGS**, under a
-`MARKET SHOCKWAVES` section header. Each has a description in the right-hand
-panel. Everything is also reachable from the console (`mswSettings`, `mswSet`,
+Fifteen settings, on the **Settings** tab of the mod's own ESC-menu page (see
+*The hub page* below). Each has a description in the right-hand panel. If that
+page cannot be added on some game version, the same rows fall back to **ESC →
+Settings → GAME SETTINGS**, under a `MARKET SHOCKWAVES` section header, which is
+where they lived up to build b19. Everything is also reachable from the console (`mswSettings`, `mswSet`,
 `mswReset`), and the two routes share one code path.
 
 | Setting | Type | Effect |
 |---|---|---|
 | **Enable Market Shockwaves** | on/off, default on | master switch. Events already running are allowed to **expire naturally** rather than being cut off, so the market winds down instead of snapping back. |
-| **Events per year (average)** | steps 0…10, default **1.7** | sets `E` directly — the average total events/year across all events. **0 disables** new events. |
+| **Events per year (average)** | steps 0…10, default **2** | sets `E` directly — the average total events/year across all events. **0 disables** new events. |
 | **Minimum time between events** | steps 0…12 months, default **2** | cooldown on event *starts*. 2 leaves one whole month silent; 1 would be a no-op, since consecutive months are already allowed. |
 | **Maximum events at once** | steps 1…8, default **3** | ceiling on simultaneous events. Events are designed to stack, so this is the rail that stops an unlucky run compounding indefinitely. |
 | **Event Intensity** | 0–200%, default 100% | scales price-swing magnitude + daily jitter |
 | **Event Duration** | 25–200%, default 100% | scales how long events last |
 | **Supply chain effects** | raw only / first stage / most / full, default full | caps how far a ripple may climb the chain. A **cap only reduces** reach — it never extends what a severity would have reached on its own. |
 | **Show price markers** | on/off, default on | the `[+60%]` suffix on commodity names. It also shows in the shop and HUD, hence the opt-out. |
-| **Event categories** (6 toggles) | on/off, default on | crops, greenhouse, trade, biofuel, winter, supplies — matching the `category` attribute in `config/events.xml` |
+| **Event categories** (7 toggles) | on/off, default on | crops, greenhouse, trade, biofuel, winter, supplies, consumer — matching the `category` attribute in `config/events.xml` |
+
+### The hub page
+
+From build b20 the mod has its own page in the ESC menu: a hub rather than a
+settings page, because the mod now has more to show than switches. Sub-tabs
+run across the top, the way the game's own statistics page does it:
+
+| Tab | Shows |
+|---|---|
+| **Market** | *In the news*: every running event, newest first, under the title it was announced with. *Prices on the move*: every product whose price has moved 1% or more today, largest first. Selecting a news item shows its full message again; selecting a product shows which events are behind it. |
+| **Settings** | the fifteen settings. |
+
+A **Forecasts** tab is planned for the speculation feature.
+
+**No spoilers.** The Market tab shows only what the player was already told (the
+news item) and what a selling point already shows (today's change). No remaining
+duration, no peak, and a ripple that has not arrived yet is not listed until it
+does. The change shown is exactly the modifier the price hook applies, combined
+across events with the stacking rule.
+
+**Split in two for testing.** `model/MarketView.lua` turns the price model into
+plain tables and is covered offline; `game/HubFrame.lua` only draws them.
+
+**How it gets into the menu.** The page is a `TabbedMenuFrameElement` with its
+own layout (`gui/MSWHubFrame.xml`), added to the ESC menu's paging element,
+registered, given a tab icon, and the tab list rebuilt. Every call it needs is
+checked for first; if one is missing, or the layout loads without its controls,
+the menu is left untouched and the settings fall back to GAME SETTINGS. All
+drawing runs under `pcall`, so a mistake costs this page and never the ESC menu.
+
+**The tab icon** is a white glyph on transparent (`gui/menuIcon.dds`, drawn by
+`tools/make_menu_icon.py`). The menu tints its tab icons, so the full-colour
+store icon cannot be reused there: b20 tried, and it came out as a muddy grid.
+
+**The settings rows need their own colours.** The base game's row profile sets
+a size and nothing else, and a Bitmap with no colour draws solid white; the base
+settings page paints its rows from code. The hub's row profile states the
+colours instead (transparent, with every second row banded).
+
+**Reference for base-game profiles:** `sdk/xmlDoku/guiProfiles.xml` in the game
+install lists every `fs25_*` profile and colour preset. Check it before using
+one; do not guess what a profile sets.
 
 ### How the rows are built
 
@@ -377,7 +455,7 @@ Three decisions worth recording:
    instance method shadows the class one, so no other mod patching
    `InGameMenuSettingsFrame` can collide with us.
 2. **Every row is a `MultiTextOption`, booleans included** (Off/On). One code
-   path covers all fourteen settings, and it matches how most of the game's own
+   path covers all fifteen settings, and it matches how most of the game's own
    rows are built.
 3. **A clone carries the template's `onClickCallback` and `target`**, which point
    at a real base-game handler. Both are overwritten — otherwise changing a mod
@@ -1143,7 +1221,81 @@ also broadens those events beyond the fairly niche olive/grape crops. Tomato is
 consequently in **four** events (both Mediterranean, both greenhouse), which is
 legitimate stacking across different event ids.
 
-> **Balance note (current roster):** **8 win : 8 lose : 1 neutral** — parity
+> **Balance note** _(roster at this point)_: **8 win : 8 lose : 1 neutral** — parity
+> holds.
+
+---
+
+### 18–19. Pandemic and Trendy Lifestyle  *(neutral — mixed: one group up, one down)*
+
+The first **demand-side** pair, in a new category, **consumer**. Nothing happens
+to supply; shoppers simply change what they buy, so there is a winner and a
+loser in the same event.
+
+| | Pandemic (18) | Trendy Lifestyle (19) |
+|---|---|---|
+| Rises (full) | soups, cans, jars, preserves | greenhouse produce, cheeses, olive oil, grape juice |
+| Falls (half strength) | greenhouse produce, cheeses, olive oil, grape juice | soups, cans, jars, preserves |
+| Magnitude of the rise | +15–20, +20–30, +60–70% | +15–20, +20–30, **+40–50%** |
+| Onset | near-instant (`peakPos` 0.10–0.25, `riseExp` 0.5–0.8), low hold | slow build (`peakPos` 0.45–0.65, `riseExp` 1.2–1.6), high hold |
+| Duration | 1–2 / 3–5 / 6–9 mo | 2–4 / 4–7 / 8–12 mo |
+
+**Shelf-stable group:** `SOUPCANSCARROTS` `SOUPCANSPARSNIP` `SOUPCANSBEETROOT`
+`SOUPCANSPOTATO` `SOUPCANSMIXED` `NOODLESOUP` `PRESERVEDCARROTS` `PRESERVEDPARSNIP`
+`PRESERVEDBEETROOT` `CANNED_PEAS` `JARRED_GREENBEAN`
+
+**Fresh and premium group:** `LETTUCE` `TOMATO` `STRAWBERRY` `SPRING_ONION`
+`NAPACABBAGE` `CHILLI` `GARLIC` `CHEESE` `GOATCHEESE` `BUFFALOMOZZARELLA`
+`OLIVE_OIL` `GRAPEJUICE`
+
+**The opposite group is a new config element.** Until now an event moved
+everything it touched one way. `<opposite scale="0.50">` lists products moved
+*against* the event's direction at half the swing — which is exactly the adverse
+downtune the roster already uses, so the losing side of a high pandemic falls
+30–35% like any other high adverse event. Opposite products are direct: no lag,
+no chain may start from them, and neither the severity's ripple depth nor the
+player's supply-chain setting removes them. In the reach map they are simply a
+negative pass-through.
+
+**Backward ripples**, as in the trade events — the processor running flat out
+pays more for what goes in:
+
+```
+Pandemic:  PRESERVEDCARROTS ──▶ CARROT     PRESERVEDPARSNIP ──▶ PARSNIP
+           PRESERVEDBEETROOT ──▶ BEETROOT  SOUPCANSPOTATO ──▶ POTATO
+           CANNED_PEAS ──▶ PEA             JARRED_GREENBEAN ──▶ GREENBEAN
+Trendy:    CHEESE ──▶ MILK   GOATCHEESE ──▶ GOATMILK   BUFFALOMOZZARELLA ──▶ BUFFALOMILK
+           OLIVE_OIL ──▶ OLIVE   GRAPEJUICE ──▶ GRAPE
+```
+
+All tier 1 with a half-month lag; pass-through 0.50 for the vegetables and 0.80
+for milk, olives and grapes (the trade events' value). The vegetable ripple is
+what makes the pandemic matter to a player with no cannery.
+
+**Why neutral, both of them.** Each has a clear winner and a clear loser, like
+the harsh winter, so the rising side takes full magnitude and the pair sits
+outside the win/lose count.
+
+**Why the trend's high tier is softer.** It is the broadest event in the roster:
+twelve direct products that the greenhouse, dairy and Mediterranean pairs also
+move, so it overlaps more than any other. A fashion is also a gentler force than
+a failed harvest.
+
+**`SOUPCANSMIXED` and `NOODLESOUP` finally move.** They are multi-input blends,
+so no crop event drives them. A demand shock acts on the finished product and
+has no such problem.
+
+**No wine.** The base game has no wine product; `GRAPEJUICE` stands in, as it
+does in the Mediterranean pair.
+
+**Season — flat for both.** Neither an outbreak nor a fashion keeps a farmer's
+calendar.
+
+Messages escalate *Stockpiling Scare* → *Regional Lockdown* → *Pandemic*, and
+*Fresh Food Fad* → *Clean Eating Trend* → *Gourmet Craze*. Being mixed, each
+names both sides.
+
+> **Balance note (current roster):** **8 win : 8 lose : 3 neutral** — parity
 > holds. Earlier notes in this file are marked _(roster at this point)_ and record
 > parity as the roster grew; this is the one that describes the shipped mod.
 

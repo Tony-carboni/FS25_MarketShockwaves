@@ -118,6 +118,8 @@ function Element:setState(i, fireCallback)
     end
 end
 function Element:invalidateLayout() self.layoutInvalidated = true end
+function Element:setVisible(v) self.visible = v end
+function Element:applyProfile(name) self.profile = name end
 
 -- ---- the page under test --------------------------------------------------
 
@@ -388,6 +390,61 @@ check("no rows were invented", next(m2.rows) == nil)
 g_gui.guis.InGameMenu.target.pageSettings = nil
 local m3 = MSWSettingsMenu.new(settings, log, nil)
 check("install reports failure when there is no settings page", m3:install() == false)
+
+-- ---------------------------------------------------------------------------
+group("9  the same rows on the mod's own hub page")
+
+-- The hub layout holds one header and one template row, nothing else.
+local hubPage, hubLayout = buildFakePage()
+local hubTemplateRow, hubTemplateHeader = hubLayout.elements[1], hubLayout.elements[2]
+-- The hub's template row carries the hub's own profile, not the base game's.
+hubTemplateRow.profile = "msw_hubSettingsRow"
+local hubSettings = MSWSettingsAdapter.new(log)
+local hubChanged = {}
+local hubMenu = MSWSettingsMenu.new(hubSettings, log, function(name)
+    hubChanged[#hubChanged + 1] = name
+end)
+local hubSpec = MSWSettingsAdapter.getMenuSpec()
+local callsBefore = baseGameCalls
+
+check("buildInto succeeds on a layout with a template row", hubMenu:buildInto(hubLayout) == true)
+local hubBuilt = 0
+for _ in pairs(hubMenu.rows) do hubBuilt = hubBuilt + 1 end
+check(("one row per setting (%d)"):format(#hubSpec), hubBuilt == #hubSpec)
+check("no section header is added: only the two templates plus the rows",
+      #hubLayout.elements == 2 + #hubSpec, tostring(#hubLayout.elements))
+check("the templates are hidden", hubTemplateRow.visible == false and hubTemplateHeader.visible == false)
+check("the layout is re-flowed", hubLayout.layoutInvalidated == true)
+check("the consumer category has a row", hubMenu.rows.catConsumer ~= nil)
+
+-- Rows are the layout's children after the two templates, in spec order.
+local banded, plain = 0, 0
+for i = 3, #hubLayout.elements do
+    local rowProfile = hubLayout.elements[i].profile
+    local expectAlt = (i - 2) % 2 == 0
+    if rowProfile == "msw_hubSettingsRowAlt" and expectAlt then banded = banded + 1 end
+    if rowProfile == "msw_hubSettingsRow" and not expectAlt then plain = plain + 1 end
+end
+check("the hub's own row profile is recognised as a template", hubBuilt == #hubSpec)
+check("every second row is banded, the others are not",
+      banded == math.floor(#hubSpec / 2) and plain == #hubSpec - banded,
+      ("%d banded, %d plain"):format(banded, plain))
+
+local hubRow = hubMenu.rows.eventsPerYear
+hubRow.option:setState(7, true)      -- the 2.5 step
+check("changing a hub row changes the setting", hubSettings:get("eventsPerYear") == 2.5,
+      tostring(hubSettings:get("eventsPerYear")))
+check("and reports the change", hubChanged[#hubChanged] == "eventsPerYear")
+check("and never reaches the template's base-game handler", baseGameCalls == callsBefore)
+
+hubSettings:set("eventsPerYear", 2)
+hubMenu:refresh()
+check("refresh shows the default rate on its step", hubRow.option.state == 6,
+      tostring(hubRow.option.state))
+
+local noLayout = MSWSettingsMenu.new(hubSettings, log, nil)
+local okHub, errHub = pcall(function() return noLayout:buildInto(nil) end)
+check("a missing hub layout is reported, not raised", okHub and errHub == false, tostring(errHub))
 
 -- ---------------------------------------------------------------------------
 print(("\n===== %d passed, %d failed =====\n"):format(passed, failed))

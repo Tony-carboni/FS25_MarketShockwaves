@@ -24,7 +24,7 @@ and ripple down the production chain.
 Market Shockwaves gives the economy a memory. Seasonal events — a drought, a
 dairy embargo, an ethanol boom — push prices along a curve that builds, holds,
 and corrects when the new harvest lands. Shocks travel downstream: wheat first,
-then flour, then bread, each later and softer than the last. Seventeen events, and
+then flour, then bread, each later and softer than the last. Nineteen events, and
 no two alike.
 
 ---
@@ -114,12 +114,14 @@ so barley doesn't drive it as well.
 
 Events don't queue up politely. A grain drought and an input shock can run at
 once, and their effects compound — expensive fertiliser on top of scarce grain is
-a harder year than either alone. A single event never overlaps itself, and a
-configurable ceiling stops an unlucky run from piling up without end.
+a harder year than either alone. When two shocks push the same product the same
+way, the second adds less than it would alone, so a pile-up bites without
+running away. A single event never overlaps itself, and a configurable ceiling
+stops an unlucky run from piling up without end.
 
 ---
 
-### The roster — seventeen events across six categories
+### The roster — nineteen events across seven categories
 
 Each category can be switched off independently.
 
@@ -177,6 +179,17 @@ Each category can be switched off independently.
   growers reach for substitutes — small consolation in an expensive spring.
   *Winter into spring.*
 
+**Consumer**
+- **Pandemic** — households stay home and stock the cupboard. Soups, canned peas,
+  jarred beans and preserved vegetables sell as fast as they can be made, and
+  canneries pay more for the vegetables that go in them. With restaurants quiet,
+  fresh greenhouse produce, cheese, olive oil and grape juice lose ground.
+  *Whenever it lands.*
+- **Trendy Lifestyle** — the mirror. Fresh and local becomes the fashion:
+  greenhouse produce, cheese, olive oil and grape juice climb, dairies and
+  presses pay more for milk, olives and grapes, and nobody wants a tin.
+  *Whenever it lands.*
+
 ---
 
 ### Fair, but not soft
@@ -205,8 +218,9 @@ long enough and you will still be caught out.
 
 ### Settings
 
-In **ESC → Settings → Game Settings**, under a `MARKET SHOCKWAVES` heading. Each
-row explains itself in the description panel.
+On the **Market Shockwaves** page in the ESC menu, under its **Settings** tab.
+Each row explains itself in the description panel. The same page's **Market**
+tab shows what is in the news and which prices are moving today.
 
 | Setting | What it does |
 |---|---|
@@ -218,7 +232,7 @@ row explains itself in the description panel.
 | Event duration | Scales how long events run. |
 | Supply chain effects | Caps how far ripples climb — raw crops only, or all the way up. |
 | Show price markers | Adds the current change to affected commodity names. |
-| Event categories | Six independent toggles. |
+| Event categories | Seven independent toggles. |
 
 Want a wilder market? Turn intensity and frequency up. Want the occasional
 shock and long calm spells in between? Turn them down. Want only weather events

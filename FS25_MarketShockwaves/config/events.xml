@@ -5,7 +5,7 @@
     Everything here is player-editable. See DESIGN.md for the full model.
 
     CATEGORY
-      Each event belongs to one of six categories, which is what the in-game
+      Each event belongs to one of seven categories, which is what the in-game
       settings menu switches on and off as a group:
         crops       grain and root drought/bumper
         greenhouse  beetle plague and pest-free season
@@ -13,6 +13,21 @@
         biofuel     the mandate cut and boost
         winter      harsh winter
         supplies    input price shock and natural disaster
+        consumer    pandemic stockpiling and the fresh-food fashion
+
+    OPPOSITE (a second group, moving the other way)
+      A consumer shift has a winner and a loser: what shoppers pile into their
+      baskets rises, and what they leave on the shelf falls. <opposite> lists
+      products the event moves AGAINST its own direction, at `scale` times the
+      swing (0.50 = half, which is the usual adverse downtune). They are direct
+      products: no lag, no chain may start from them, and neither the severity's
+      rippleDepth nor the player's supply-chain setting removes them.
+
+    STACKING (several events on one product)
+      Effects pushing a product the same way give diminishing returns: the
+      largest counts in full, the second at 60%, any further one at 30%. Rises
+      and falls are ranked separately, so opposing events still net out in
+      full. The weights live in scripts/model/PriceModel.lua.
 
     SUBTYPE (mutual exclusion)
       Events sharing a `subtype` can NEVER run at the same time. This is for
@@ -59,7 +74,7 @@
 
     <settings>
         <!-- Average total events per year across all events. 0 disables. -->
-        <eventsPerYear value="1.7"/>
+        <eventsPerYear value="2.0"/>
         <!-- Default severity distribution; must sum to 1.0 -->
         <severityChances low="0.60" medium="0.30" high="0.10"/>
         <!-- Default per-hop ripple behaviour -->
@@ -1021,6 +1036,140 @@
                           peakPosMin="0.25" peakPosMax="0.45" riseExpMin="0.8" riseExpMax="1.2"
                           hold="0.70" correctionMonths="0.9" jitter="0.025"
                           rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             18. PANDEMIC - neutral (mixed): shelf-stable food UP at full
+                 magnitude, fresh and premium food DOWN at half.
+
+             Households stay home and stock the cupboard. Anything that keeps
+             - soups, cans, jars, preserves - is bought faster than it can be
+             made, and the canneries bid up the vegetables they need. At the
+             same time restaurants and markets stand empty, so the fresh and
+             premium goods they would have bought go unsold.
+
+             Neutral for the same reason as the harsh winter: there is a clear
+             winner and a clear loser, so it takes full magnitude and sits
+             outside the win/lose count.
+
+             SOUPCANSMIXED and NOODLESOUP are multi-input blends, which is why
+             no crop event drives them. A demand shock has no such problem: it
+             acts on the finished product, so this is the event that finally
+             moves them.
+
+             Season is FLAT: an outbreak is not tied to the farming calendar.
+             ============================================================ -->
+        <event id="pandemicCrisis" subtype="consumerShift" category="consumer" type="neutral" baseWeight="1.0">
+            <affects>SOUPCANSCARROTS SOUPCANSPARSNIP SOUPCANSBEETROOT SOUPCANSPOTATO
+                     SOUPCANSMIXED NOODLESOUP
+                     PRESERVEDCARROTS PRESERVEDPARSNIP PRESERVEDBEETROOT
+                     CANNED_PEAS JARRED_GREENBEAN</affects>
+
+            <!-- Left on the shelf while everyone stays home. Half strength. -->
+            <opposite scale="0.50">LETTUCE TOMATO STRAWBERRY SPRING_ONION NAPACABBAGE CHILLI GARLIC
+                     CHEESE GOATCHEESE BUFFALOMOZZARELLA
+                     OLIVE_OIL GRAPEJUICE</opposite>
+
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Backward: canneries running flat out pay more for what goes
+                     in the tin. One driver per vegetable (single-driver rule),
+                     so each is led by its simplest product rather than its soup. -->
+                <chain from="PRESERVEDCARROTS"  to="CARROT"    tier="1" lagMonths="0.5" passThrough="0.50"/>
+                <chain from="PRESERVEDPARSNIP"  to="PARSNIP"   tier="1" lagMonths="0.5" passThrough="0.50"/>
+                <chain from="PRESERVEDBEETROOT" to="BEETROOT"  tier="1" lagMonths="0.5" passThrough="0.50"/>
+                <chain from="SOUPCANSPOTATO"    to="POTATO"    tier="1" lagMonths="0.5" passThrough="0.50"/>
+                <chain from="CANNED_PEAS"       to="PEA"       tier="1" lagMonths="0.5" passThrough="0.50"/>
+                <chain from="JARRED_GREENBEAN"  to="GREENBEAN" tier="1" lagMonths="0.5" passThrough="0.50"/>
+            </chains>
+
+            <severities>
+                <!-- Panic buying: the jump is almost immediate (early peak, fast
+                     rise), then it fades as shelves are restocked and households
+                     eat through what they stored (low hold). -->
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="1" durationMonthsMax="2"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.50" correctionMonths="0.4" jitter="0.015"
+                          rippleDepth="1" rippleScale="0.55"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="3" durationMonthsMax="5"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.55" correctionMonths="0.7" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.60" priceFactorMax="1.70"
+                          durationMonthsMin="6" durationMonthsMax="9"
+                          peakPosMin="0.10" peakPosMax="0.25" riseExpMin="0.5" riseExpMax="0.8"
+                          hold="0.60" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.30"/>
+            </severities>
+        </event>
+
+        <!-- ============================================================
+             19. TRENDY LIFESTYLE - neutral (mixed): fresh and premium food
+                 UP, shelf-stable food DOWN at half.
+
+             The MIRROR: fresh and local becomes the fashion. Greenhouse
+             produce, cheese, olive oil and grape juice are in demand, dairies
+             and presses pay more for milk, olives and grapes, and nobody wants
+             a tin.
+
+             The HIGH tier is deliberately softer than the roster's usual
+             +60-70%. This is the broadest event there is - twelve direct
+             products that the greenhouse, dairy and Mediterranean pairs also
+             move - so it overlaps more often than any other, and a fashion is
+             a gentler force than a failed harvest.
+
+             GRAPEJUICE stands in for wine: the base game has no wine product.
+
+             Season is FLAT: a fashion can take hold in any month.
+             ============================================================ -->
+        <event id="trendyLifestyle" subtype="consumerShift" category="consumer" type="neutral" baseWeight="1.0">
+            <affects>LETTUCE TOMATO STRAWBERRY SPRING_ONION NAPACABBAGE CHILLI GARLIC
+                     CHEESE GOATCHEESE BUFFALOMOZZARELLA
+                     OLIVE_OIL GRAPEJUICE</affects>
+
+            <!-- Out of fashion. Half strength. -->
+            <opposite scale="0.50">SOUPCANSCARROTS SOUPCANSPARSNIP SOUPCANSBEETROOT SOUPCANSPOTATO
+                     SOUPCANSMIXED NOODLESOUP
+                     PRESERVEDCARROTS PRESERVEDPARSNIP PRESERVEDBEETROOT
+                     CANNED_PEAS JARRED_GREENBEAN</opposite>
+
+            <monthWeights jan="1" feb="1" mar="1" apr="1" may="1" jun="1"
+                          jul="1" aug="1" sep="1" oct="1" nov="1" dec="1"/>
+
+            <chains>
+                <!-- Backward, as in the trade events: processors chasing volume
+                     pay more at the farm gate. -->
+                <chain from="CHEESE"            to="MILK"        tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="GOATCHEESE"        to="GOATMILK"    tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="BUFFALOMOZZARELLA" to="BUFFALOMILK" tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="OLIVE_OIL"         to="OLIVE"       tier="1" lagMonths="0.5" passThrough="0.80"/>
+                <chain from="GRAPEJUICE"        to="GRAPE"       tier="1" lagMonths="0.5" passThrough="0.80"/>
+            </chains>
+
+            <severities>
+                <!-- A fashion spreads by word of mouth: slow, accelerating
+                     build (late peak), stays high once established (high hold),
+                     and fades gently. The opposite of the pandemic spike. -->
+                <severity class="low"    priceFactorMin="1.15" priceFactorMax="1.20"
+                          durationMonthsMin="2" durationMonthsMax="4"
+                          peakPosMin="0.45" peakPosMax="0.65" riseExpMin="1.2" riseExpMax="1.6"
+                          hold="0.75" correctionMonths="0.6" jitter="0.015"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="medium" priceFactorMin="1.20" priceFactorMax="1.30"
+                          durationMonthsMin="4" durationMonthsMax="7"
+                          peakPosMin="0.45" peakPosMax="0.65" riseExpMin="1.2" riseExpMax="1.6"
+                          hold="0.80" correctionMonths="0.8" jitter="0.020"
+                          rippleDepth="1" rippleScale="1.00"/>
+                <severity class="high"   priceFactorMin="1.40" priceFactorMax="1.50"
+                          durationMonthsMin="8" durationMonthsMax="12"
+                          peakPosMin="0.45" peakPosMax="0.65" riseExpMin="1.2" riseExpMax="1.6"
+                          hold="0.85" correctionMonths="1.0" jitter="0.025"
+                          rippleDepth="1" rippleScale="1.00"/>
             </severities>
         </event>
 

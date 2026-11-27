@@ -29,7 +29,7 @@ Author: **Tony_Carboni** · singleplayer (multiplayer sync planned) ·
 | Find or add a screenshot | [`docs/screenshots/`](docs/screenshots/) — naming, what to capture, and two rules for captions |
 
 **`docs/event-review.md` is the reference to reach for first.** For each of the
-17 events it gives:
+19 events it gives:
 
 - the three severity messages, in full
 - every product moved, split into direct hits and ripple targets (with driver,
@@ -215,8 +215,8 @@ adapting this the same way this project was blocked from adapting someone else's
 | `python3 tools/event_review.py -o docs/event-review.md` | regenerate the event review sheet |
 | `python3 tools/filltype_coverage.py -o docs/filltype-coverage.txt` | regenerate the coverage report |
 | `python3 tools/roster_report.py --markdown` | month-by-month view of the whole roster |
-| `lua tools/test_model.lua` | 101 offline tests of the curve, ripple, scheduler, mutual exclusion, commodity markers, short-season behaviour and the welcome message |
-| `lua tools/test_settings_menu.lua` | 36 offline tests of the settings rows |
+| `lua tools/test_model.lua` | 148 offline tests of the curve, ripple, scheduler, stacking, mutual exclusion, opposite products, commodity markers, short-season behaviour, the welcome message and the hub's market view |
+| `lua tools/test_settings_menu.lua` | 49 offline tests of the settings rows, on the hub page and on the GAME SETTINGS fallback |
 
 The `*_sim.py` scripts are the Python simulators the Lua model was validated
 against — propagation, severity ripple, trigger timing, cooldown.
@@ -285,8 +285,9 @@ mswDebug                        toggle verbose logging
 mswDump                         full diagnostic dump to log.txt
 ```
 
-Player settings also live in **ESC → Settings → Game Settings**, under a
-`MARKET SHOCKWAVES` heading.
+Player settings also live on the mod's own **Market Shockwaves** page in the ESC
+menu, on its **Settings** tab. (Only if that page cannot be added do they fall
+back to **ESC → Settings → Game Settings**, under a `MARKET SHOCKWAVES` heading.)
 
 ### Event ids, for `mswTrigger`
 

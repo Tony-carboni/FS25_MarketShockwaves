@@ -135,6 +135,10 @@ function MSWDiag.dumpConfig(log, config)
     for _, def in ipairs(config.events) do
         line(log, ("-- %s [%s] baseWeight=%.2f"):format(def.id, def.type, def.baseWeight))
         line(log, ("     affects (%d): %s"):format(#def.affects, table.concat(def.affects, " ")))
+        if def.opposite ~= nil and #def.opposite > 0 then
+            line(log, ("     opposite (%d, x%.2f): %s"):format(#def.opposite,
+                def.oppositeScale or 0.5, table.concat(def.opposite, " ")))
+        end
 
         local shares = {}
         for m = 1, 12 do

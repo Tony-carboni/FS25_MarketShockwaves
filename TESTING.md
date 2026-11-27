@@ -141,6 +141,8 @@ the evidence, so a future regression has something to be measured against.
 - **Savegame persistence.** Active events and settings survive save and reload.
 - **The settings menu.** All 14 rows in ESC → Settings → GAME SETTINGS with real
   labels, correct values, and each description appearing in the right-hand panel.
+  (Confirmed there on earlier builds. From b20 the rows live on the mod's own
+  ESC page, which has NOT been confirmed in game yet.)
 - **Mutual exclusion of mirrored events.** `mswTrigger ethanolGlut medium`
   started normally (6 products: `MAIZE SILAGE SOYBEAN SUGAR SUGARBEET SUGARCANE`
   — 4 direct plus 2 ripple, as configured), and `mswTrigger ethanolBoom medium`

@@ -1,13 +1,30 @@
 --[[
     PriceModel — combines all running events into one modifier per fill type.
 
-    Overlapping events STACK MULTIPLICATIVELY:
+    Overlapping events STACK WITH DIMINISHING RETURNS, per product:
 
-        modifier(product) = factor_A * factor_B * ...
+        the largest effect today counts in full,
+        the second at 60%, the third and any later one at 30%,
 
-    Two +20% events give 1.2 * 1.2 = 1.44. Multiplying compounds naturally and
-    can never push a price to zero or negative, however many negative events
-    overlap (0.9 * 0.9 * 0.9 = 0.73).
+    and the weighted factors are then multiplied:
+
+        modifier = (1 + d1) * (1 + 0.6 * d2) * (1 + 0.3 * d3) ...
+
+    Two +20% events give 1.2 * 1.12 = 1.34 rather than 1.44, and two +70% events
+    give +141% rather than +189%. A second event still clearly matters; a pile-up
+    of severe ones can no longer triple a price.
+
+    RANKED BY SIZE, NOT BY ARRIVAL. If the first event to start always counted in
+    full, the price would jump on the day it ended and the next one was promoted.
+    Ranking by today's size has no such jump: where two effects cross they are
+    equal, so swapping their weights changes nothing.
+
+    RISES AND FALLS ARE RANKED SEPARATELY. A drought against a glut is two real
+    forces pulling against each other and still nets out in full; only effects
+    pushing the SAME way dampen one another.
+
+    Multiplying can never push a price to zero or negative, however many negative
+    events overlap.
 
     PERFORMANCE: the price hook is called very frequently (potentially many times
     per frame, per station, per fill type). Recomputing curves there would be
@@ -109,21 +126,68 @@ function MSWPriceModel:pruneExpired(currentDay)
     return expired
 end
 
+--- Share of its own swing an effect keeps, by rank among the effects pushing a
+--- product the same way: largest first. Ranks past the end reuse the last entry.
+MSWPriceModel.STACK_WEIGHTS = { 1.0, 0.6, 0.3 }
+
+local function largestFirst(a, b) return math.abs(a) > math.abs(b) end
+
+--- Combine same-direction deviations (factor - 1) into one factor.
+local function stackOneWay(deviations)
+    if deviations == nil then return 1.0 end
+    if #deviations > 1 then table.sort(deviations, largestFirst) end
+    local weights = MSWPriceModel.STACK_WEIGHTS
+    local factor = 1.0
+    for rank, deviation in ipairs(deviations) do
+        factor = factor * (1.0 + deviation * (weights[rank] or weights[#weights]))
+    end
+    return factor
+end
+
+--- Combine every running event's factor for ONE product into its modifier.
+--- @param factors table array of price factors (1.0 = no effect)
+function MSWPriceModel.combineFactors(factors)
+    local ups, downs
+    for _, factor in ipairs(factors) do
+        if factor > 1.0 then
+            ups = ups or {}
+            ups[#ups + 1] = factor - 1.0
+        elseif factor < 1.0 then
+            downs = downs or {}
+            downs[#downs + 1] = factor - 1.0
+        end
+    end
+    return stackOneWay(ups) * stackOneWay(downs)
+end
+
 --- Recompute the modifier table for `currentDay`. Cheap to call repeatedly.
 function MSWPriceModel:rebuild(currentDay)
     if self.builtForDay == currentDay then return end
 
-    local mods = {}
+    -- Gather every event's factor per product first: the stacking weights
+    -- depend on how the effects rank against each other, so they cannot be
+    -- folded in one event at a time.
+    local perProduct = {}
     for _, ev in ipairs(self.activeEvents) do
         for _, productName in ipairs(ev:getProducts()) do
             local factor = ev:getFactorFor(productName, currentDay)
             if factor ~= 1.0 then
                 local idx = self:getIndexFor(productName)
                 if idx ~= nil then
-                    mods[idx] = (mods[idx] or 1.0) * factor
+                    local list = perProduct[idx]
+                    if list == nil then
+                        list = {}
+                        perProduct[idx] = list
+                    end
+                    list[#list + 1] = factor
                 end
             end
         end
+    end
+
+    local mods = {}
+    for idx, factors in pairs(perProduct) do
+        mods[idx] = MSWPriceModel.combineFactors(factors)
     end
 
     self.modifiers = mods

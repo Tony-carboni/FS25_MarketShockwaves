@@ -14,7 +14,7 @@ Event tags:  (w)=win  (l)=lose  (n)=neutral
   direct  = listed in the event's <affects>, moves at FULL magnitude
   ripple  = reached through a chain; tN = tier, xN = pass-through
 
-TOTALS: 110 workable, 96 covered by at least one event, 14 unused
+TOTALS: 110 workable, 97 covered by at least one event, 13 unused
 
 ------------------------------------------------------------------------------
 WORKABLE AND IN USE
@@ -27,16 +27,16 @@ SORGHUM                  0.430   direct: grainDrought(w), grainBumper(l)
 SUNFLOWER                0.673   direct: grainDrought(w), grainBumper(l)
 SOYBEAN                  0.778   direct: grainDrought(w), grainBumper(l), ethanolGlut(l), ethanolBoom(w)
 MAIZE                    0.380   direct: grainDrought(w), grainBumper(l), ethanolGlut(l), ethanolBoom(w)
-POTATO                   0.222   direct: rootDrought(w), rootBumper(l)
+POTATO                   0.222   direct: rootDrought(w), rootBumper(l)  |  ripple: pandemicCrisis t1 x0.50
 SUGARBEET                0.172   direct: rootDrought(w), rootBumper(l), ethanolGlut(l), ethanolBoom(w)
-BEETROOT                 0.122   direct: rootDrought(w), rootBumper(l)
-CARROT                   0.132   direct: rootDrought(w), rootBumper(l)
-PARSNIP                  0.131   direct: rootDrought(w), rootBumper(l)
+BEETROOT                 0.122   direct: rootDrought(w), rootBumper(l)  |  ripple: pandemicCrisis t1 x0.50
+CARROT                   0.132   direct: rootDrought(w), rootBumper(l)  |  ripple: pandemicCrisis t1 x0.50
+PARSNIP                  0.131   direct: rootDrought(w), rootBumper(l)  |  ripple: pandemicCrisis t1 x0.50
 COTTON                   1.252   ripple: naturalDisaster t2 x0.70
 RICELONGGRAIN            0.530   direct: asianTradeDisruption(w), monsoonBounty(l)
 RICE                     1.100   direct: asianTradeDisruption(w), monsoonBounty(l)
-GREENBEAN                0.720   direct: rootDrought(w), rootBumper(l)
-PEA                      1.040   direct: rootDrought(w), rootBumper(l)
+GREENBEAN                0.720   direct: rootDrought(w), rootBumper(l)  |  ripple: pandemicCrisis t1 x0.50
+PEA                      1.040   direct: rootDrought(w), rootBumper(l)  |  ripple: pandemicCrisis t1 x0.50
 SPINACH                  0.220   direct: rootDrought(w), rootBumper(l)
 SUGARCANE                0.119   direct: ethanolGlut(l), ethanolBoom(w)
 WOOD                     1.000   ripple: naturalDisaster t2 x0.70
@@ -45,18 +45,18 @@ SILAGE                   0.121   ripple: harshWinter t1, ethanolGlut t1 x0.50, e
 GRASS_WINDROW            0.045   ripple: grainDrought t1 x0.45, rootDrought t1 x0.45
 DRYGRASS_WINDROW         0.056   ripple: grainDrought t1 x0.45, rootDrought t1 x0.45
 STRAW                    0.041   ripple: grainDrought t1 x0.80, grainBumper t1 x0.80
-GRAPE                    0.603   ripple: mediterraneanEmbargo t1 x0.80, mediterraneanExportBoom t1 x0.80
-OLIVE                    0.603   ripple: mediterraneanEmbargo t1 x0.80, mediterraneanExportBoom t1 x0.80
-MILK                     0.700   ripple: dairyEmbargo t1 x0.80, dairyExportBoom t1 x0.80
-GOATMILK                 2.820   ripple: dairyEmbargo t1 x0.80, dairyExportBoom t1 x0.80
-BUFFALOMILK              3.500   ripple: dairyEmbargo t1 x0.80, dairyExportBoom t1 x0.80
-LETTUCE                  0.990   direct: greenhousePest(w), greenhouseBounty(l)
-TOMATO                   0.500   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w), greenhousePest(w), greenhouseBounty(l)
-STRAWBERRY               0.450   direct: greenhousePest(w), greenhouseBounty(l)
-SPRING_ONION             0.450   direct: greenhousePest(w), greenhouseBounty(l)
-NAPACABBAGE              0.350   direct: greenhousePest(w), greenhouseBounty(l)
-CHILLI                   0.450   direct: greenhousePest(w), greenhouseBounty(l)
-GARLIC                   0.450   direct: greenhousePest(w), greenhouseBounty(l)
+GRAPE                    0.603   ripple: mediterraneanEmbargo t1 x0.80, mediterraneanExportBoom t1 x0.80, trendyLifestyle t1 x0.80
+OLIVE                    0.603   ripple: mediterraneanEmbargo t1 x0.80, mediterraneanExportBoom t1 x0.80, trendyLifestyle t1 x0.80
+MILK                     0.700   ripple: dairyEmbargo t1 x0.80, dairyExportBoom t1 x0.80, trendyLifestyle t1 x0.80
+GOATMILK                 2.820   ripple: dairyEmbargo t1 x0.80, dairyExportBoom t1 x0.80, trendyLifestyle t1 x0.80
+BUFFALOMILK              3.500   ripple: dairyEmbargo t1 x0.80, dairyExportBoom t1 x0.80, trendyLifestyle t1 x0.80
+LETTUCE                  0.990   direct: greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
+TOMATO                   0.500   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w), greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
+STRAWBERRY               0.450   direct: greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
+SPRING_ONION             0.450   direct: greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
+NAPACABBAGE              0.350   direct: greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
+CHILLI                   0.450   direct: greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
+GARLIC                   0.450   direct: greenhousePest(w), greenhouseBounty(l), trendyLifestyle(n)
 ENOKI                    0.420   direct: asianTradeDisruption(w), monsoonBounty(l)
 OYSTER                   0.865   ripple: asianTradeDisruption t1 x0.35, monsoonBounty t1 x0.35
 BOARDS                   1.300   ripple: naturalDisaster t1 x0.75
@@ -71,21 +71,22 @@ MILK_BOTTLED             0.580   direct: dairyEmbargo(l), dairyExportBoom(w)
 GOATMILK_BOTTLED         2.110   direct: dairyEmbargo(l), dairyExportBoom(w)
 BUFFALOMILK_BOTTLED      2.490   direct: dairyEmbargo(l), dairyExportBoom(w)
 BUTTER                   1.120   direct: dairyEmbargo(l), dairyExportBoom(w)
-CHEESE                   1.800   direct: dairyEmbargo(l), dairyExportBoom(w)
-BUFFALOMOZZARELLA        7.500   direct: dairyEmbargo(l), dairyExportBoom(w)
-GOATCHEESE               1.760   direct: dairyEmbargo(l), dairyExportBoom(w)
+CHEESE                   1.800   direct: dairyEmbargo(l), dairyExportBoom(w), trendyLifestyle(n)
+BUFFALOMOZZARELLA        7.500   direct: dairyEmbargo(l), dairyExportBoom(w), trendyLifestyle(n)
+GOATCHEESE               1.760   direct: dairyEmbargo(l), dairyExportBoom(w), trendyLifestyle(n)
 CHOCOLATE                2.000   ripple: rootDrought t3 x0.45, rootBumper t3 x0.45
 POTATOCHIPS              1.500   ripple: rootDrought t1, rootBumper t1
 RICEROLLS                1.550   ripple: asianTradeDisruption t2 x0.60, monsoonBounty t2 x0.60
 FERMENTEDNAPACABBAGE     0.650   ripple: greenhousePest t1 x0.60, greenhouseBounty t1 x0.60
-PRESERVEDCARROTS         0.580   ripple: rootDrought t1, rootBumper t1
-PRESERVEDPARSNIP         0.578   ripple: rootDrought t1, rootBumper t1
-PRESERVEDBEETROOT        0.560   ripple: rootDrought t1, rootBumper t1
-NOODLESOUP               1.550   ripple: asianTradeDisruption t3 x0.45, monsoonBounty t3 x0.45
-SOUPCANSCARROTS          0.885   ripple: rootDrought t2, rootBumper t2
-SOUPCANSPARSNIP          0.880   ripple: rootDrought t2, rootBumper t2
-SOUPCANSBEETROOT         0.845   ripple: rootDrought t2, rootBumper t2
-SOUPCANSPOTATO           1.245   ripple: rootDrought t2, rootBumper t2
+PRESERVEDCARROTS         0.580   direct: pandemicCrisis(n)  |  ripple: rootDrought t1, rootBumper t1
+PRESERVEDPARSNIP         0.578   direct: pandemicCrisis(n)  |  ripple: rootDrought t1, rootBumper t1
+PRESERVEDBEETROOT        0.560   direct: pandemicCrisis(n)  |  ripple: rootDrought t1, rootBumper t1
+NOODLESOUP               1.550   direct: pandemicCrisis(n)  |  ripple: asianTradeDisruption t3 x0.45, monsoonBounty t3 x0.45
+SOUPCANSMIXED            0.940   direct: pandemicCrisis(n)
+SOUPCANSCARROTS          0.885   direct: pandemicCrisis(n)  |  ripple: rootDrought t2, rootBumper t2
+SOUPCANSPARSNIP          0.880   direct: pandemicCrisis(n)  |  ripple: rootDrought t2, rootBumper t2
+SOUPCANSBEETROOT         0.845   direct: pandemicCrisis(n)  |  ripple: rootDrought t2, rootBumper t2
+SOUPCANSPOTATO           1.245   direct: pandemicCrisis(n)  |  ripple: rootDrought t2, rootBumper t2
 FABRIC                   4.000   ripple: naturalDisaster t1 x0.75
 CLOTHES                  8.500   direct: naturalDisaster(w)
 SUGAR                    0.500   ripple: rootDrought t1, rootBumper t1, ethanolGlut t1 x0.60, ethanolBoom t1 x0.60
@@ -93,17 +94,17 @@ CEREAL                   3.800   ripple: grainDrought t1, grainBumper t1
 FURNITURE                1.950   ripple: naturalDisaster t3 x0.50
 SUNFLOWER_OIL            1.780   ripple: grainDrought t1, grainBumper t1
 CANOLA_OIL               1.640   ripple: grainDrought t1, grainBumper t1
-OLIVE_OIL                2.440   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w)
+OLIVE_OIL                2.440   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w), trendyLifestyle(n)
 RICE_OIL                 1.780   ripple: asianTradeDisruption t1 x0.55, monsoonBounty t1 x0.55
 RAISINS                  1.630   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w)
-GRAPEJUICE               1.650   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w)
+GRAPEJUICE               1.650   direct: mediterraneanEmbargo(l), mediterraneanExportBoom(w), trendyLifestyle(n)
 CEMENT                   1.050   direct: naturalDisaster(w)
 BATHTUB                  1.710   ripple: naturalDisaster t3 x0.50
 ROOFPLATES               1.580   direct: naturalDisaster(w)
-CANNED_PEAS              2.596   ripple: rootDrought t1, rootBumper t1
+CANNED_PEAS              2.596   direct: pandemicCrisis(n)  |  ripple: rootDrought t1, rootBumper t1
 CEMENTBRICKS             1.580   direct: naturalDisaster(w)
 SPINACH_BAGS             0.775   ripple: rootDrought t1, rootBumper t1
-JARRED_GREENBEAN         1.886   ripple: rootDrought t1, rootBumper t1
+JARRED_GREENBEAN         1.886   direct: pandemicCrisis(n)  |  ripple: rootDrought t1, rootBumper t1
 RICE_BAGS                1.464   ripple: asianTradeDisruption t1 x0.70, monsoonBounty t1 x0.70
 RICE_BOXES               2.730   ripple: asianTradeDisruption t2 x0.50, monsoonBounty t2 x0.50
 SEEDS                    0.900   direct: inputShock(l)
@@ -127,7 +128,6 @@ SUGARBEET_CUT            0.222   DELIBERATE: harvest intermediate, not a traded 
 WOOL                     0.940
 EGG                      1.120
 HONEY                    1.000
-SOUPCANSMIXED            0.940
 CARTONROLL               2.900
 PAPERROLL                3.200
 BARREL                   1.780
@@ -281,4 +281,12 @@ greenhousePest  [win]  7 direct + 1 ripple = 8 products
 greenhouseBounty  [lose]  7 direct + 1 ripple = 8 products
     direct: LETTUCE TOMATO STRAWBERRY SPRING_ONION NAPACABBAGE CHILLI GARLIC
     ripple: FERMENTEDNAPACABBAGE
+
+pandemicCrisis  [neutral]  11 direct + 6 ripple = 17 products
+    direct: SOUPCANSCARROTS SOUPCANSPARSNIP SOUPCANSBEETROOT SOUPCANSPOTATO SOUPCANSMIXED NOODLESOUP PRESERVEDCARROTS PRESERVEDPARSNIP PRESERVEDBEETROOT CANNED_PEAS JARRED_GREENBEAN
+    ripple: CARROT PARSNIP BEETROOT POTATO PEA GREENBEAN
+
+trendyLifestyle  [neutral]  12 direct + 5 ripple = 17 products
+    direct: LETTUCE TOMATO STRAWBERRY SPRING_ONION NAPACABBAGE CHILLI GARLIC CHEESE GOATCHEESE BUFFALOMOZZARELLA OLIVE_OIL GRAPEJUICE
+    ripple: MILK GOATMILK BUFFALOMILK OLIVE GRAPE
 

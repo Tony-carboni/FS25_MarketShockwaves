@@ -184,6 +184,35 @@
         <text name="msw_greenhouseBounty_high_title" text="Market Alert: Greenhouse Glut"/>
         <text name="msw_greenhouseBounty_high_text" text="Barely a beetle to be found this year, and the region's glasshouses are producing like never before. Lettuce, tomatoes, strawberries, spring onions, cabbage, chilli and garlic are flooding the market and prices are tumbling. Wonderful growing conditions, dreadful prices - expect the glut to hang around for months."/>
 
+        <!-- ================= 18. PANDEMIC ================= -->
+        <text name="msw_pandemicCrisis_low_title" text="Market Report: Stockpiling Scare"/>
+        <text name="msw_pandemicCrisis_low_text" text="A nasty bug is doing the rounds and cautious households are filling their cupboards. Tinned soups, canned peas, jarred green beans and preserved vegetables are leaving the shelves faster than usual, and the canneries are paying a little more for carrots, parsnips, beetroot, potatoes, peas and green beans. With fewer people eating out, fresh greenhouse produce, cheese, olive oil and grape juice are a touch slower to sell. It should blow over once the shelves are restocked."/>
+
+        <text name="msw_pandemicCrisis_medium_title" text="Market Report: Regional Lockdown"/>
+        <text name="msw_pandemicCrisis_medium_text" text="People have been asked to stay home, and shoppers are buying food that keeps. Soups, canned peas, jarred green beans and preserved vegetables are selling as fast as they can be made, and canneries are bidding up vegetables to keep the lines running. Restaurants and markets are quiet, so greenhouse produce, cheese, olive oil and grape juice are sliding. Demand will swing back as households work through what they have stored."/>
+
+        <text name="msw_pandemicCrisis_high_title" text="Market Alert: Pandemic"/>
+        <text name="msw_pandemicCrisis_high_text" text="A pandemic has emptied the supermarket shelves. Anything in a can or a jar is being bought by the pallet - soups, canned peas, jarred green beans and preserved vegetables - and canneries will pay almost anything for the vegetables to make more. With restaurants shut and markets closed, fresh greenhouse produce, cheese, olive oil and grape juice have lost their buyers and prices are falling hard. If you can process your own harvest, keep the lines running; it will be a good while before calm returns."/>
+
+        <!-- ================= 19. TRENDY LIFESTYLE ================= -->
+        <text name="msw_trendyLifestyle_low_title" text="Market Report: Fresh Food Fad"/>
+        <text name="msw_trendyLifestyle_low_text" text="A popular cookery show has put fresh ingredients back in fashion. Lettuce, tomatoes, strawberries, spring onions, cabbage, chilli and garlic are picking up a little, along with cheese, mozzarella, olive oil and grape juice, while tins and jars are left on the shelf. A small lift for glasshouses, dairies and groves; slightly slower trade for the canneries."/>
+
+        <text name="msw_trendyLifestyle_medium_title" text="Market Report: Clean Eating Trend"/>
+        <text name="msw_trendyLifestyle_medium_text" text="Fresh and local is the fashion of the season. Lettuce, tomatoes, strawberries, spring onions, cabbage, chilli and garlic are climbing steadily as the habit spreads, and so are cheese, mozzarella, olive oil and grape juice, with dairies and presses paying more for milk, olives and grapes. Canned soups, jarred and preserved vegetables are out of favour and sliding."/>
+
+        <text name="msw_trendyLifestyle_high_title" text="Market Alert: Gourmet Craze"/>
+        <text name="msw_trendyLifestyle_high_text" text="The whole country has gone mad for fresh food. Restaurants and market stalls cannot get enough lettuce, tomatoes, strawberries, spring onions, cabbage, chilli and garlic, nor cheese, mozzarella, olive oil and grape juice, and dairies and presses are competing hard for milk, olives and grapes. Nobody wants a tin any more: soups and canned vegetables are piling up in the warehouses. Fashions like this build slowly and take a long time to fade."/>
+
+        <!-- ================= HUB PAGE (ESC MENU) ================= -->
+        <text name="msw_hub_title" text="Market Shockwaves"/>
+        <text name="msw_hub_tab_market" text="Market"/>
+        <text name="msw_hub_tab_settings" text="Settings"/>
+        <text name="msw_hub_section_news" text="In the news"/>
+        <text name="msw_hub_section_prices" text="Prices on the move"/>
+        <text name="msw_hub_moved_by" text="Moved by:"/>
+        <text name="msw_hub_calm" text="The market is calm. Nothing is moving prices right now."/>
+
         <!-- ================= SETTINGS MENU ================= -->
         <!-- msw_setting_* is the row label, msw_tooltip_* the description shown
              in the right-hand panel. Descriptions say what the setting does AND
@@ -243,5 +272,8 @@
 
         <text name="msw_setting_catSupplies" text="Supply and construction events"/>
         <text name="msw_tooltip_catSupplies" text="Fertiliser, lime and seed price shocks that hit just as you restock for spring, and natural disasters that drive up demand for building materials and timber. Manure and slurry gain value while inputs are expensive."/>
+
+        <text name="msw_setting_catConsumer" text="Consumer events"/>
+        <text name="msw_tooltip_catConsumer" text="Shifts in what shoppers buy. A pandemic sends them to soups, cans and preserves and away from fresh and premium food; a fresh-food fashion does the reverse. Each has a winner and a loser, so these matter to canneries, greenhouses, dairies, olive groves and vineyards alike."/>
     </texts>
 </l10n>

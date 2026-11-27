@@ -52,8 +52,26 @@ rm -rf "$OUT"; mkdir -p "$OUT"
 # The zip must contain the mod's files at its ROOT (modDesc.xml at top level),
 # not nested inside a folder, or the game will not recognise it.
 # Only ship what the game needs. Dev notes and editor droppings stay out.
-( cd "$MOD" && zip -qr "../$OUT/$MOD.zip" . \
-    -x '*.DS_Store' '*.md' '*.bak' '*~' '.git*' )
+if command -v zip >/dev/null 2>&1; then
+    ( cd "$MOD" && zip -qr "../$OUT/$MOD.zip" . \
+        -x '*.DS_Store' '*.md' '*.bak' '*~' '.git*' )
+else
+    # Git Bash on Windows ships unzip but not zip. Same contents, same
+    # exclusions, written with Python instead.
+    python3 - "$MOD" "$OUT/$MOD.zip" <<'PY'
+import fnmatch, os, sys, zipfile
+src, out = sys.argv[1], sys.argv[2]
+skip = ("*.DS_Store", "*.md", "*.bak", "*~", ".git*")
+with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+    for root, dirs, files in os.walk(src):
+        dirs[:] = sorted(d for d in dirs if not d.startswith(".git"))
+        for name in sorted(files):
+            if any(fnmatch.fnmatch(name, pat) for pat in skip):
+                continue
+            path = os.path.join(root, name)
+            z.write(path, os.path.relpath(path, src).replace(os.sep, "/"))
+PY
+fi
 
 echo
 echo "built $OUT/$MOD.zip"

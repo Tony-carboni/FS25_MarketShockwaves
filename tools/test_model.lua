@@ -8,7 +8,7 @@
       1. the wheat -> flour -> bread -> cake cascade (staggered ~1 month per
          layer, diminishing, base still elevated when the top of the chain peaks)
       2. severity-scaled ripple depth (LOW 1 hop, MED 2, HI 3)
-      3. multiplicative stacking
+      3. stacking with diminishing returns (100% / 60% / 30%, by size)
       4. the annual event rate: ~eventsPerYear regardless of days-per-month
       5. seasonal distribution respects the month windows
       6. straw behaves as a co-product of grain (same direction, no real lag)
@@ -16,6 +16,9 @@
      12. commodity markers follow the curve day by day
      13. short seasons (1-2 days/month): chains fire, the news day moves
      14. the welcome message: queued once, saved, never truncated
+     15. opposite products: a second group moving the other way
+     16. the consumer pair: mirrored, mixed, mutually exclusive
+     17. the hub's market view: what is shown, in what order, and no spoilers
 
     Run:  lua tools/test_model.lua
 ]]
@@ -35,6 +38,7 @@ load("lib/Random.lua")
 load("model/Curve.lua")
 load("model/ActiveEvent.lua")
 load("model/PriceModel.lua")
+load("model/MarketView.lua")
 load("model/EventScheduler.lua")
 
 local log = {
@@ -159,7 +163,7 @@ for _, spec in ipairs({ { "low", 1 }, { "medium", 2 }, { "high", 3 } }) do
 end
 
 -- ===========================================================================
-print("\n[3] multiplicative stacking")
+print("\n[3] stacking: diminishing returns, ranked by size")
 local model = MSWPriceModel.new(function(name)
     local map = { WHEAT = 1, FLOUR = 2, BREAD = 3, CAKE = 4 }
     return map[name]
@@ -171,12 +175,39 @@ model:addEvent(a); model:addEvent(b)
 local probe = math.floor(a.durationDays * 0.4)
 model:rebuild(probe)
 local combined = model:getModifier(1)
-local expected = a:getFactorFor("WHEAT", probe) * b:getFactorFor("WHEAT", probe)
-check("two events multiply", math.abs(combined - expected) < 1e-9,
+local fa, fb = a:getFactorFor("WHEAT", probe), b:getFactorFor("WHEAT", probe)
+local big, small = math.max(fa, fb), math.min(fa, fb)
+local expected = big * (1 + (small - 1) * 0.6)
+check("the larger effect counts in full, the smaller at 60%",
+      math.abs(combined - expected) < 1e-9,
       ("%.4f vs %.4f"):format(combined, expected))
-check("stacked result exceeds either alone",
-      combined > a:getFactorFor("WHEAT", probe),
-      ("%.4f"):format(combined))
+check("stacked result exceeds either alone", combined > big, ("%.4f"):format(combined))
+check("stacked result is below plain multiplication", combined < fa * fb - 1e-6,
+      ("%.4f vs %.4f"):format(combined, fa * fb))
+
+local function near(x, y) return math.abs(x - y) < 1e-9 end
+local cf = MSWPriceModel.combineFactors
+check("one event alone is untouched", near(cf({ 1.37 }), 1.37))
+check("nothing running leaves the price alone", near(cf({}), 1.0))
+check("two +70% events give +141%, not +189%",
+      near(cf({ 1.7, 1.7 }), 1.7 * 1.42), ("%.4f"):format(cf({ 1.7, 1.7 })))
+check("a third event counts at 30%",
+      near(cf({ 1.7, 1.7, 1.5 }), 1.7 * 1.42 * 1.15), ("%.4f"):format(cf({ 1.7, 1.7, 1.5 })))
+check("a fourth reuses the last weight",
+      near(cf({ 1.7, 1.7, 1.5, 1.2 }), 1.7 * 1.42 * 1.15 * 1.06))
+check("falls dampen each other the same way",
+      near(cf({ 0.7, 0.7 }), 0.7 * 0.82), ("%.4f"):format(cf({ 0.7, 0.7 })))
+check("ranking is by size, not by the order events were added",
+      near(cf({ 1.2, 1.7 }), cf({ 1.7, 1.2 })) and near(cf({ 1.2, 1.7 }), 1.7 * 1.12))
+check("a rise against a fall still nets out in full",
+      near(cf({ 1.5, 0.8 }), 1.5 * 0.8), ("%.4f"):format(cf({ 1.5, 0.8 })))
+check("rises and falls are ranked separately",
+      near(cf({ 1.5, 0.8, 1.2, 0.9 }), (1.5 * 1.12) * (0.8 * 0.94)),
+      ("%.4f"):format(cf({ 1.5, 0.8, 1.2, 0.9 })))
+-- No jump when two effects cross: either side of the crossing must agree.
+check("no jump where two effects change rank",
+      math.abs(cf({ 1.3000, 1.3001 }) - cf({ 1.3001, 1.3000 })) < 1e-9
+      and math.abs(cf({ 1.3001, 1.3000 }) - cf({ 1.2999, 1.3000 })) < 1e-3)
 
 -- ===========================================================================
 print("\n[4] annual event rate is days-per-month independent")
@@ -950,6 +981,226 @@ do
     check("the shown flag is read back from the savegame",
           src:find('getXMLBool(xml, SAVEGAME_KEY .. "#welcomeShown")', 1, true) ~= nil)
 end
+
+-- ===========================================================================
+print("\n[15] opposite products: a second group moving the other way")
+
+local function consumerSeverities(highMin, highMax)
+    return {
+        low = severity{ priceFactorMin=1.15, priceFactorMax=1.20,
+            durationMonthsMin=2, durationMonthsMax=4, peakPosMin=0.45, peakPosMax=0.65,
+            riseExpMin=1.2, riseExpMax=1.6, hold=0.75, correctionMonths=0.6,
+            jitter=0.015, rippleDepth=1, rippleScale=1.00 },
+        medium = severity{ priceFactorMin=1.20, priceFactorMax=1.30,
+            durationMonthsMin=4, durationMonthsMax=7, peakPosMin=0.45, peakPosMax=0.65,
+            riseExpMin=1.2, riseExpMax=1.6, hold=0.80, correctionMonths=0.8,
+            jitter=0.020, rippleDepth=1, rippleScale=1.00 },
+        high = severity{ priceFactorMin=highMin, priceFactorMax=highMax,
+            durationMonthsMin=8, durationMonthsMax=12, peakPosMin=0.45, peakPosMax=0.65,
+            riseExpMin=1.2, riseExpMax=1.6, hold=0.85, correctionMonths=1.0,
+            jitter=0.025, rippleDepth=1, rippleScale=1.00 },
+    }
+end
+
+-- Mirrors trendyLifestyle in config/events.xml (a representative subset).
+local trendy = {
+    id = "trendyLifestyle", subtype = "consumerShift", type = "neutral", baseWeight = 1.0,
+    affects = { "LETTUCE", "TOMATO", "CHEESE", "OLIVE_OIL" },
+    opposite = { "SOUPCANSMIXED", "CANNED_PEAS" }, oppositeScale = 0.5,
+    chains = {
+        CHEESE    = { { to = "MILK",  tier = 1, lagMonths = 0.5, passThrough = 0.80 } },
+        OLIVE_OIL = { { to = "OLIVE", tier = 1, lagMonths = 0.5, passThrough = 0.80 },
+                      -- A config mistake on purpose: a chain trying to claim an
+                      -- opposite product must lose to it.
+                      { to = "CANNED_PEAS", tier = 1, lagMonths = 0.5, passThrough = 0.80 } },
+    },
+    severities = consumerSeverities(1.40, 1.50),
+}
+local pandemic = {
+    id = "pandemicCrisis", subtype = "consumerShift", type = "neutral", baseWeight = 1.0,
+    affects = { "SOUPCANSMIXED", "CANNED_PEAS" },
+    opposite = { "LETTUCE", "TOMATO", "CHEESE", "OLIVE_OIL" }, oppositeScale = 0.5,
+    chains = { CANNED_PEAS = { { to = "PEA", tier = 1, lagMonths = 0.5, passThrough = 0.50 } } },
+    severities = consumerSeverities(1.60, 1.70),
+}
+
+math.randomseed(1918)
+local fad = MSWActiveEvent.new(trendy, "high", 0, D, { intensity = 1, duration = 1 })
+check("opposite products are in the reach map",
+      fad.reach.SOUPCANSMIXED ~= nil and fad.reach.CANNED_PEAS ~= nil)
+check("they carry a negative pass-through at the configured scale",
+      fad.reach.SOUPCANSMIXED ~= nil and fad.reach.SOUPCANSMIXED.passThrough == -0.5
+      and fad.reach.SOUPCANSMIXED.lagDays == 0)
+check("a chain cannot claim an opposite product",
+      fad.reach.CANNED_PEAS ~= nil and fad.reach.CANNED_PEAS.passThrough == -0.5)
+
+local mirrored, sawRise, sawFall = true, false, false
+for day = 0, fad.durationDays - 1 do
+    local up, down = fad:getFactorFor("TOMATO", day), fad:getFactorFor("SOUPCANSMIXED", day)
+    if math.abs((down - 1) + 0.5 * (up - 1)) > 1e-9 then mirrored = false end
+    if up > 1.05 then sawRise = true end
+    if down < 0.975 then sawFall = true end
+end
+check("the fresh side rises", sawRise)
+check("the canned side falls at the same time", sawFall)
+check("every day the fall is exactly half the rise, in the other direction", mirrored)
+check("the high tier is softened: fresh peaks below +50%, cans fall less than 25%",
+      fad.peakFactor <= 1.50 and fad.peakFactor >= 1.40)
+check("both sides are back to normal once the event has ended",
+      fad:getFactorFor("TOMATO", fad.durationDays) == 1.0
+      and fad:getFactorFor("SOUPCANSMIXED", fad.durationDays) == 1.0)
+
+local rawOnly = MSWActiveEvent.new(trendy, "high", 0, D,
+                                   { intensity = 1, duration = 1, supplyChainDepth = 0 })
+check("supply chain depth 0 removes the chains but keeps the opposite side",
+      rawOnly.reach.MILK == nil and rawOnly.reach.SOUPCANSMIXED ~= nil)
+
+local plain = MSWActiveEvent.new(grainDrought, "medium", 0, D, { intensity = 1, duration = 1 })
+local hasNegative = false
+for _, r in pairs(plain.reach) do if r.passThrough < 0 then hasNegative = true end end
+check("an event without <opposite> is unchanged", not hasNegative)
+
+local muted = MSWActiveEvent.new(trendy, "medium", 0, D, { intensity = 0, duration = 1 })
+local mutedMid = math.floor(muted.durationDays * 0.6)
+check("intensity 0 silences the opposite side along with the rest",
+      muted:getFactorFor("TOMATO", mutedMid) == 1.0
+      and muted:getFactorFor("SOUPCANSMIXED", mutedMid) == 1.0)
+
+-- ===========================================================================
+print("\n[16] the consumer pair: mirrored, mixed, mutually exclusive")
+
+math.randomseed(2020)
+local outbreak = MSWActiveEvent.new(pandemic, "high", 0, D, { intensity = 1, duration = 1 })
+local mid = math.floor(outbreak.durationDays * 0.3)
+check("pandemic: cans rise", outbreak:getFactorFor("SOUPCANSMIXED", mid) > 1.2,
+      ("%.3f"):format(outbreak:getFactorFor("SOUPCANSMIXED", mid)))
+check("pandemic: fresh and premium food falls", outbreak:getFactorFor("CHEESE", mid) < 0.9,
+      ("%.3f"):format(outbreak:getFactorFor("CHEESE", mid)))
+check("pandemic: vegetables for canning follow the cans up",
+      outbreak:getFactorFor("PEA", mid) > 1.05,
+      ("%.3f"):format(outbreak:getFactorFor("PEA", mid)))
+check("pandemic: the fresh side falls no further than the adverse downtune (-35%)",
+      1 - 0.5 * (outbreak.peakFactor - 1) >= 0.65 - 1e-9)
+
+local pairModel = MSWPriceModel.new(function() return 1 end, log)
+pairModel:addEvent(outbreak)
+check("the trend cannot start while the pandemic runs",
+      pairModel:findActiveBySubtype(trendy.subtype, mid) ~= nil)
+check("it may start once the pandemic has ended",
+      pairModel:findActiveBySubtype(trendy.subtype, outbreak.durationDays) == nil)
+
+-- A fall from the pandemic meeting a rise from a dairy boom nets out in full:
+-- opposite directions are never dampened against each other.
+local cheeseModel = MSWPriceModel.new(function(name) return name == "CHEESE" and 1 or nil end, log)
+local boom = {
+    id = "dairyExportBoom", subtype = "dairyTrade", type = "win", baseWeight = 1.0,
+    affects = { "CHEESE" }, chains = {}, severities = consumerSeverities(1.60, 1.70),
+}
+local dairy = MSWActiveEvent.new(boom, "high", 0, D, { intensity = 1, duration = 1 })
+cheeseModel:addEvent(outbreak); cheeseModel:addEvent(dairy)
+cheeseModel:rebuild(mid)
+check("a pandemic fall and a dairy boom on cheese net out in full",
+      math.abs(cheeseModel:getModifier(1)
+               - outbreak:getFactorFor("CHEESE", mid) * dairy:getFactorFor("CHEESE", mid)) < 1e-9)
+
+-- ===========================================================================
+print("\n[17] hub market view: news, moving prices, no spoilers")
+
+-- This "game" has no olives: OLIVE_OIL and OLIVE must never be listed.
+local HUB_INDEX = { LETTUCE = 1, TOMATO = 2, CHEESE = 3, MILK = 4,
+                    SOUPCANSMIXED = 5, CANNED_PEAS = 6, PEA = 7 }
+local function hubModel()
+    return MSWPriceModel.new(function(name) return HUB_INDEX[name] end, log)
+end
+local function find(list, key, value)
+    for i, item in ipairs(list) do if item[key] == value then return item, i end end
+    return nil
+end
+
+local emptyView = MSWMarketView.build(hubModel(), 5)
+check("a calm market has no news and no moving prices",
+      #emptyView.events == 0 and #emptyView.products == 0)
+check("a missing model or day gives an empty view, not an error",
+      #MSWMarketView.build(nil, 5).events == 0 and #MSWMarketView.build(hubModel(), nil).events == 0)
+
+math.randomseed(4242)
+local hubM = hubModel()
+local craze = MSWActiveEvent.new(trendy, "high", 0, D, { intensity = 1, duration = 1 })
+hubM:addEvent(craze)
+local hubDay = math.floor(craze.durationDays * 0.6)
+local v = MSWMarketView.build(hubM, hubDay)
+
+check("one running event is one news item", #v.events == 1 and v.events[1].eventId == "trendyLifestyle")
+check("the news item carries the keys of the message it was announced with",
+      v.events[1].titleKey == "msw_trendyLifestyle_high_title"
+      and v.events[1].textKey == "msw_trendyLifestyle_high_text")
+check("rising products are listed", find(v.products, "name", "TOMATO") ~= nil
+      and find(v.products, "name", "TOMATO").factor > 1.05)
+check("the falling side is listed too, as a fall",
+      find(v.products, "name", "SOUPCANSMIXED") ~= nil
+      and find(v.products, "name", "SOUPCANSMIXED").factor < 0.99)
+check("ripple products appear once they have moved", find(v.products, "name", "MILK") ~= nil)
+check("products this game does not have are left out",
+      find(v.products, "name", "OLIVE_OIL") == nil and find(v.products, "name", "OLIVE") == nil)
+
+local sorted = true
+for i = 2, #v.products do
+    if math.abs(v.products[i].factor - 1) > math.abs(v.products[i - 1].factor - 1) + 1e-12 then
+        sorted = false
+    end
+end
+check("products are ordered by the size of their move, largest first", sorted and #v.products >= 4)
+
+local shown = true
+for _, prod in ipairs(v.products) do
+    local idx = HUB_INDEX[prod.name]
+    hubM:rebuild(hubDay)
+    if math.abs(hubM:getModifier(idx) - prod.factor) > 1e-9 then shown = false end
+end
+check("the change shown is exactly the modifier the price hook applies", shown)
+
+-- No spoilers: on the first day the ripple has not reached milk yet.
+local early = MSWMarketView.build(hubM, 0)
+check("a ripple that has not arrived is not listed", find(early.products, "name", "MILK") == nil)
+local leaked = false
+for _, e in ipairs(v.events) do
+    for k in pairs(e) do
+        if k == "durationDays" or k == "peakFactor" or k == "peakPos" or k == "durationMonths" then
+            leaked = true
+        end
+    end
+end
+check("the view carries no duration or peak", not leaked)
+
+check("an ended event drops out of the news",
+      #MSWMarketView.build(hubM, craze.durationDays).events == 0
+      and #MSWMarketView.build(hubM, craze.durationDays).products == 0)
+
+-- Two events on one product: one row, the combined change, both named.
+local twoM = hubModel()
+local boomDef = {
+    id = "dairyExportBoom", subtype = "dairyTrade", type = "win", baseWeight = 1.0,
+    affects = { "CHEESE" }, chains = {}, severities = consumerSeverities(1.60, 1.70),
+}
+local first  = MSWActiveEvent.new(trendy, "medium", 0, D, { intensity = 1, duration = 1 })
+local second = MSWActiveEvent.new(boomDef, "medium", 3, D, { intensity = 1, duration = 1 })
+twoM:addEvent(first); twoM:addEvent(second)
+local bothDay = math.floor(math.min(first.durationDays, second.durationDays + 3) * 0.6)
+local both = MSWMarketView.build(twoM, bothDay)
+local cheese = find(both.products, "name", "CHEESE")
+local cheeseRows = 0
+for _, prod in ipairs(both.products) do if prod.name == "CHEESE" then cheeseRows = cheeseRows + 1 end end
+check("a product under two events is listed once", cheeseRows == 1)
+check("with the combined change",
+      cheese ~= nil and math.abs(cheese.factor - MSWPriceModel.combineFactors({
+          first:getFactorFor("CHEESE", bothDay), second:getFactorFor("CHEESE", bothDay) })) < 1e-9)
+check("and both events named as the cause", cheese ~= nil and #cheese.eventIds == 2)
+check("news is ordered newest first",
+      #both.events == 2 and both.events[1].eventId == "dairyExportBoom")
+
+check("changes are formatted like the commodity markers",
+      MSWMarketView.formatChange(1.13) == "+13%" and MSWMarketView.formatChange(0.92) == "-8%"
+      and MSWMarketView.formatChange(1.004) == "+0%" and MSWMarketView.formatChange(0.67) == "-33%")
 
 print(("\n===== %d passed, %d failed =====\n"):format(pass, fail))
 os.exit(fail == 0 and 0 or 1)

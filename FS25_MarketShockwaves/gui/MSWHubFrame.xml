@@ -1,0 +1,161 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<!--
+    The Market Shockwaves page in the ESC menu. See scripts/game/HubFrame.lua.
+
+    Built from the base game's own fs25_* profiles wherever one exists, so the
+    page follows the game's look and survives its restyling. The profiles at the
+    bottom are only for what the base game has no equivalent of.
+
+    The settings rows are NOT written out here. The layout holds one template
+    row and one header; SettingsMenu clones the row once per setting, exactly as
+    it did on the GAME SETTINGS page, and hides the templates.
+-->
+<GUI name="MSWHubFrame">
+    <GuiElement profile="fs25_menuContainer">
+        <GuiElement profile="fs25_menuHeaderPanel">
+            <Text profile="msw_hubHeaderTitle" text="$l10n_msw_hub_title"/>
+        </GuiElement>
+
+        <!-- Sub-tabs -->
+        <BoxLayout profile="fs25_subCategorySelectorTabbedBox" id="subCategoryBox">
+            <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[1]" text="$l10n_msw_hub_tab_market" onClick="onClickMarketTab">
+                <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
+            </Button>
+            <Button profile="fs25_subCategorySelectorTabbedTab" id="subCategoryTabs[2]" text="$l10n_msw_hub_tab_settings" onClick="onClickSettingsTab">
+                <ThreePartBitmap profile="fs25_subCategorySelectorTabbedTabBg" name="background"/>
+            </Button>
+        </BoxLayout>
+        <ThreePartBitmap profile="fs25_lineSeparatorTopHighlighted" position="0px -57px"/>
+        <MultiTextOption profile="fs25_subCategorySelectorTabbed" id="subCategoryPaging" onClick="onTabPagingChanged"/>
+
+        <!-- ================= MARKET ================= -->
+        <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[1]">
+            <SmoothList profile="msw_hubList" id="marketList" listSectionHeader="section">
+                <ListItem profile="msw_hubListItem">
+                    <Text profile="msw_hubCellName" name="name"/>
+                    <Text profile="msw_hubCellChange" name="change"/>
+                </ListItem>
+                <ListItem profile="fs25_subCategoryListSectionHeader" name="section">
+                    <Text profile="fs25_subCategoryListSectionHeaderTitle" name="title"/>
+                </ListItem>
+            </SmoothList>
+            <ThreePartBitmap profile="msw_hubListSliderBox">
+                <Slider profile="fs25_listSlider" dataElementId="marketList"/>
+            </ThreePartBitmap>
+
+            <Text profile="msw_hubEmptyText" id="marketEmptyText" text="$l10n_msw_hub_calm" visible="false"/>
+
+            <GuiElement profile="msw_hubDetailBox">
+                <Text profile="msw_hubDetailTitle" id="detailTitle"/>
+                <Text profile="msw_hubDetailText" id="detailText"/>
+            </GuiElement>
+        </GuiElement>
+
+        <!-- ================= SETTINGS ================= -->
+        <GuiElement profile="fs25_subCategorySelectorTabbedContainer" id="subCategoryPages[2]">
+            <ScrollingLayout profile="fs25_settingsLayout" id="settingsLayout">
+                <Text profile="fs25_settingsSectionHeader" name="sectionHeader"/>
+                <Bitmap profile="msw_hubSettingsRow">
+                    <MultiTextOption profile="fs25_settingsMultiTextOption">
+                        <Text profile="fs25_multiTextOptionTooltip" name="ignore"/>
+                    </MultiTextOption>
+                    <Text profile="fs25_settingsMultiTextOptionTitle"/>
+                </Bitmap>
+            </ScrollingLayout>
+            <Bitmap profile="fs25_settingsTooltipSeparator"/>
+        </GuiElement>
+    </GuiElement>
+
+    <GUIProfiles>
+        <!-- A settings row. The base game's fs25_multiTextOptionContainer sets a
+             size and nothing else: with no colour of its own a Bitmap draws solid
+             white, and the base settings page paints its rows from code. Ours has
+             no such code, so the colours are stated here. Every second row uses
+             the Alt profile, which gives the same banding as the game's lists. -->
+        <Profile name="msw_hubSettingsRow" extends="fs25_multiTextOptionContainer">
+            <imageColor value="$preset_colorTransparent"/>
+            <imageFocusedColor value="$preset_colorTransparent"/>
+            <imageHighlightedColor value="$preset_colorTransparent"/>
+            <imageSelectedColor value="$preset_colorTransparent"/>
+            <imageDisabledColor value="$preset_colorTransparent"/>
+        </Profile>
+        <Profile name="msw_hubSettingsRowAlt" extends="msw_hubSettingsRow">
+            <imageColor value="$preset_fs25_colorGreyDark_50"/>
+            <imageFocusedColor value="$preset_fs25_colorGreyDark_50"/>
+            <imageHighlightedColor value="$preset_fs25_colorGreyDark_50"/>
+            <imageSelectedColor value="$preset_fs25_colorGreyDark_50"/>
+            <imageDisabledColor value="$preset_fs25_colorGreyDark_50"/>
+        </Profile>
+
+        <Profile name="msw_hubHeaderTitle" extends="fs25_textDefault">
+            <size value="900px 64px"/>
+            <position value="0px 0px"/>
+            <textSize value="31px"/>
+            <textBold value="false"/>
+            <textUpperCase value="true"/>
+        </Profile>
+
+        <!-- Left column: the list. -->
+        <Profile name="msw_hubList" extends="emptyPanel" with="anchorTopLeft pivotTopLeft">
+            <position value="0px -20px"/>
+            <size value="760px 640px"/>
+        </Profile>
+        <Profile name="msw_hubListItem" extends="baseReference" with="anchorTopStretchingX alternating">
+            <height value="36px"/>
+            <imageColor value="$preset_fs25_colorGrey"/>
+            <imageSelectedColor value="$preset_fs25_colorMainHighlight"/>
+            <alternateBackgroundColor value="$preset_fs25_colorGreyDark_50"/>
+        </Profile>
+        <Profile name="msw_hubCellName" extends="baseReference" with="anchorStretchingYLeft">
+            <position value="16px 0px"/>
+            <size value="560px 36px"/>
+            <textSize value="17px"/>
+            <textBold value="true"/>
+            <textAlignment value="left"/>
+            <textVerticalAlignment value="middle"/>
+            <textColor value="$preset_fs25_colorMainLight"/>
+            <textSelectedColor value="$preset_fs25_colorMainDark"/>
+        </Profile>
+        <Profile name="msw_hubCellChange" extends="msw_hubCellName">
+            <position value="590px 0px"/>
+            <size value="150px 36px"/>
+            <textAlignment value="right"/>
+        </Profile>
+        <Profile name="msw_hubListSliderBox" extends="fs25_listSliderBox" with="anchorTopLeft pivotTopLeft">
+            <position value="772px -20px"/>
+            <size value="6px 640px"/>
+        </Profile>
+        <Profile name="msw_hubEmptyText" extends="fs25_textDefault" with="anchorTopLeft pivotTopLeft">
+            <position value="16px -40px"/>
+            <size value="740px 40px"/>
+            <textSize value="19px"/>
+            <textAlignment value="left"/>
+        </Profile>
+
+        <!-- Right column: the news item or product behind the selected row. -->
+        <Profile name="msw_hubDetailBox" extends="emptyPanel" with="anchorTopLeft pivotTopLeft">
+            <position value="820px -20px"/>
+            <size value="660px 640px"/>
+        </Profile>
+        <Profile name="msw_hubDetailTitle" extends="fs25_textDefault" with="anchorTopLeft pivotTopLeft">
+            <position value="0px 0px"/>
+            <size value="660px 40px"/>
+            <textSize value="22px"/>
+            <textBold value="true"/>
+            <textAlignment value="left"/>
+            <textVerticalAlignment value="top"/>
+            <textColor value="$preset_fs25_colorMainHighlight"/>
+        </Profile>
+        <Profile name="msw_hubDetailText" extends="fs25_textDefault" with="anchorTopLeft pivotTopLeft">
+            <position value="0px -50px"/>
+            <size value="660px 580px"/>
+            <textSize value="18px"/>
+            <textBold value="false"/>
+            <textAlignment value="left"/>
+            <textVerticalAlignment value="top"/>
+            <textWrapWidth value="650px"/>
+            <textMaxNumLines value="24"/>
+            <textLineHeightScale value="1.25"/>
+        </Profile>
+    </GUIProfiles>
+</GUI>

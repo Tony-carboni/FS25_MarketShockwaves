@@ -3,7 +3,7 @@
     <author>Tony_Carboni</author>
     <!-- Bumped per test build. The LOADED MODS line in log.txt reports this,
          which is the quickest way to tell a stale install from a real bug. -->
-    <version>0.9.0.3</version>
+    <version>0.9.1.1</version>
 
     <title>
         <en>Market Shockwaves</en>
@@ -16,7 +16,7 @@
 - Three severity tiers, each with its own ripple depth and price curve
 - Prices build, plateau and correct over months - never a flat modifier
 - Settings for frequency, intensity, duration, chain depth and event types,
-  in ESC - Settings - Game Settings
+  on the mod's own page in the ESC menu
 
 WORK IN PROGRESS - singleplayer only for now.]]></en>
     </description>
@@ -37,10 +37,12 @@ WORK IN PROGRESS - singleplayer only for now.]]></en>
         <sourceFile filename="scripts/model/ActiveEvent.lua"/>
         <sourceFile filename="scripts/model/EventScheduler.lua"/>
         <sourceFile filename="scripts/model/PriceModel.lua"/>
+        <sourceFile filename="scripts/model/MarketView.lua"/>
         <sourceFile filename="scripts/game/EconomyAdapter.lua"/>
         <sourceFile filename="scripts/game/CalendarAdapter.lua"/>
         <sourceFile filename="scripts/game/SettingsAdapter.lua"/>
         <sourceFile filename="scripts/game/SettingsMenu.lua"/>
+        <sourceFile filename="scripts/game/HubFrame.lua"/>
         <sourceFile filename="scripts/game/PriceDisplayAdapter.lua"/>
         <sourceFile filename="scripts/game/NotificationAdapter.lua"/>
         <sourceFile filename="scripts/MarketShockwaves.lua"/>

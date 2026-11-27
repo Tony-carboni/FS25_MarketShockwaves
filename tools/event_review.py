@@ -190,13 +190,23 @@ def render() -> str:
         # ---- products ----
         affects = (e.findtext("affects") or "").split()
         chains = list(e.find("chains") or [])
+        opp = e.find("opposite")
+        opposite = (opp.text or "").split() if opp is not None else []
 
-        w(f"### Products moved ({len(affects) + len(chains)})")
+        w(f"### Products moved ({len(affects) + len(chains) + len(opposite)})")
         w("")
         w(f"**Direct — full magnitude ({len(affects)})**")
         w("")
         w("`" + "` · `".join(affects) + "`" if affects else "*none*")
         w("")
+
+        if opposite:
+            scale = float(opp.get("scale", "0.5"))
+            w(f"**Opposite — moves the other way, at {scale:.0%} of the swing "
+              f"({len(opposite)})**")
+            w("")
+            w("`" + "` · `".join(opposite) + "`")
+            w("")
 
         if chains:
             w(f"**Ripple — damped and delayed ({len(chains)})**")

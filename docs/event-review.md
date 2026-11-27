@@ -6,9 +6,9 @@ moves, so the writing and the coverage can be checked against each other.
 **Generated — do not edit.** `python3 tools/event_review.py -o docs/event-review.md`
 Source: `config/events.xml` and `l10n/l10n_en.xml`.
 
-17 events — 8 win / 8 lose / 1 neutral.
+19 events — 8 win / 8 lose / 3 neutral.
 
-Roster defaults: **1.7 events per year** on average across the whole roster, severity rolled low 60% / medium 30% / high 10%.
+Roster defaults: **2.0 events per year** on average across the whole roster, severity rolled low 60% / medium 30% / high 10%.
 
 Every event carries equal `baseWeight`, so they fire equally often; the
 events-per-year figure is a **budget split across the roster**, which means
@@ -34,6 +34,8 @@ market busier. Players can raise it in the settings menu.
 | 15 | `ethanolBoom` | biofuel | player win, prices up | all year, flat | `ethanolGlut` |
 | 16 | `greenhousePest` | greenhouse | player win, prices up | all year, peaking Jun/Jul | `greenhouseBounty` |
 | 17 | `greenhouseBounty` | greenhouse | player lose, prices down | all year, peaking Jun/Jul | `greenhousePest` |
+| 18 | `pandemicCrisis` | consumer | neutral, prices up | all year, flat | `trendyLifestyle` |
+| 19 | `trendyLifestyle` | consumer | neutral, prices up | all year, flat | `pandemicCrisis` |
 
 **Excludes** is the mutual-exclusion rule: events sharing a `subtype` can
 never run at the same time, because a boom on top of its own glut is a
@@ -1630,6 +1632,206 @@ event cannot start that month.
 > cabbage, chilli and garlic are flooding the market and prices are tumbling.
 > Wonderful growing conditions, dreadful prices - expect the glut to hang
 > around for months.
+
+---
+
+## 18. `pandemicCrisis`
+
+**consumer** · neutral · prices up · all year, flat
+
+Never runs alongside `trendyLifestyle` (shared subtype `consumerShift`).
+
+### Products moved (29)
+
+**Direct — full magnitude (11)**
+
+`SOUPCANSCARROTS` · `SOUPCANSPARSNIP` · `SOUPCANSBEETROOT` · `SOUPCANSPOTATO` · `SOUPCANSMIXED` · `NOODLESOUP` · `PRESERVEDCARROTS` · `PRESERVEDPARSNIP` · `PRESERVEDBEETROOT` · `CANNED_PEAS` · `JARRED_GREENBEAN`
+
+**Opposite — moves the other way, at 50% of the swing (12)**
+
+`LETTUCE` · `TOMATO` · `STRAWBERRY` · `SPRING_ONION` · `NAPACABBAGE` · `CHILLI` · `GARLIC` · `CHEESE` · `GOATCHEESE` · `BUFFALOMOZZARELLA` · `OLIVE_OIL` · `GRAPEJUICE`
+
+**Ripple — damped and delayed (6)**
+
+| Product | Driven by | Tier | Lag | Pass-through |
+|---|---|:-:|:-:|:-:|
+| `BEETROOT` | `PRESERVEDBEETROOT` | 1 | +0.5 mo | 0.50 |
+| `CARROT` | `PRESERVEDCARROTS` | 1 | +0.5 mo | 0.50 |
+| `GREENBEAN` | `JARRED_GREENBEAN` | 1 | +0.5 mo | 0.50 |
+| `PARSNIP` | `PRESERVEDPARSNIP` | 1 | +0.5 mo | 0.50 |
+| `PEA` | `CANNED_PEAS` | 1 | +0.5 mo | 0.50 |
+| `POTATO` | `SOUPCANSPOTATO` | 1 | +0.5 mo | 0.50 |
+
+Tier is the ripple depth a severity must reach for that hop to
+apply: LOW reaches tier 1, MEDIUM tier 2, HIGH tier 3.
+
+### Severity ranges
+
+Rolled per firing, then the actual values are rolled again inside the
+range — so two events of the same severity never share a curve.
+
+| Severity | Chance | Price change | Duration | Ripple reaches |
+|---|:-:|---|---|:-:|
+| LOW | 60% | +15% to +20% | 1–2 months | tier 1 |
+| MEDIUM | 30% | +20% to +30% | 3–5 months | tier 1 |
+| HIGH | 10% | +60% to +70% | 6–9 months | tier 1 |
+
+<details><summary>Curve shape per severity</summary>
+
+| Severity | Peak at | Rise | Plateau holds | Correction | Daily jitter | Ripple scale |
+|---|---|---|---|---|---|---|
+| LOW | 10–25% in | 0.5–0.8 | 50% of peak | 0.4 mo | ±1.5% | 0.55 |
+| MEDIUM | 10–25% in | 0.5–0.8 | 55% of peak | 0.7 mo | ±2% | 1.00 |
+| HIGH | 10–25% in | 0.5–0.8 | 60% of peak | 1 mo | ±2.5% | 1.30 |
+
+*Peak at* is a fraction of the event's duration. *Rise* is the onset
+exponent: below 1 climbs fast then flattens, above 1 starts slow and
+accelerates. *Plateau holds* is where the price settles after the peak,
+as a share of the peak swing — high values keep the base product
+elevated while the ripple travels up the chain.
+
+</details>
+
+### Weighting per month
+
+| | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Weight** | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| **Share** | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% |
+
+*Share* is the chance of this event firing in that month given that
+it fires at all — the weights are normalised, so the window sets
+**when** the event happens, never **how often**. A dash means the
+event cannot start that month.
+
+### Messages
+
+**LOW — Market Report: Stockpiling Scare**
+
+> A nasty bug is doing the rounds and cautious households are filling their
+> cupboards. Tinned soups, canned peas, jarred green beans and preserved
+> vegetables are leaving the shelves faster than usual, and the canneries are
+> paying a little more for carrots, parsnips, beetroot, potatoes, peas and
+> green beans. With fewer people eating out, fresh greenhouse produce, cheese,
+> olive oil and grape juice are a touch slower to sell. It should blow over
+> once the shelves are restocked.
+
+**MEDIUM — Market Report: Regional Lockdown**
+
+> People have been asked to stay home, and shoppers are buying food that
+> keeps. Soups, canned peas, jarred green beans and preserved vegetables are
+> selling as fast as they can be made, and canneries are bidding up vegetables
+> to keep the lines running. Restaurants and markets are quiet, so greenhouse
+> produce, cheese, olive oil and grape juice are sliding. Demand will swing
+> back as households work through what they have stored.
+
+**HIGH — Market Alert: Pandemic**
+
+> A pandemic has emptied the supermarket shelves. Anything in a can or a jar
+> is being bought by the pallet - soups, canned peas, jarred green beans and
+> preserved vegetables - and canneries will pay almost anything for the
+> vegetables to make more. With restaurants shut and markets closed, fresh
+> greenhouse produce, cheese, olive oil and grape juice have lost their buyers
+> and prices are falling hard. If you can process your own harvest, keep the
+> lines running; it will be a good while before calm returns.
+
+---
+
+## 19. `trendyLifestyle`
+
+**consumer** · neutral · prices up · all year, flat
+
+Never runs alongside `pandemicCrisis` (shared subtype `consumerShift`).
+
+### Products moved (28)
+
+**Direct — full magnitude (12)**
+
+`LETTUCE` · `TOMATO` · `STRAWBERRY` · `SPRING_ONION` · `NAPACABBAGE` · `CHILLI` · `GARLIC` · `CHEESE` · `GOATCHEESE` · `BUFFALOMOZZARELLA` · `OLIVE_OIL` · `GRAPEJUICE`
+
+**Opposite — moves the other way, at 50% of the swing (11)**
+
+`SOUPCANSCARROTS` · `SOUPCANSPARSNIP` · `SOUPCANSBEETROOT` · `SOUPCANSPOTATO` · `SOUPCANSMIXED` · `NOODLESOUP` · `PRESERVEDCARROTS` · `PRESERVEDPARSNIP` · `PRESERVEDBEETROOT` · `CANNED_PEAS` · `JARRED_GREENBEAN`
+
+**Ripple — damped and delayed (5)**
+
+| Product | Driven by | Tier | Lag | Pass-through |
+|---|---|:-:|:-:|:-:|
+| `BUFFALOMILK` | `BUFFALOMOZZARELLA` | 1 | +0.5 mo | 0.80 |
+| `GOATMILK` | `GOATCHEESE` | 1 | +0.5 mo | 0.80 |
+| `GRAPE` | `GRAPEJUICE` | 1 | +0.5 mo | 0.80 |
+| `MILK` | `CHEESE` | 1 | +0.5 mo | 0.80 |
+| `OLIVE` | `OLIVE_OIL` | 1 | +0.5 mo | 0.80 |
+
+Tier is the ripple depth a severity must reach for that hop to
+apply: LOW reaches tier 1, MEDIUM tier 2, HIGH tier 3.
+
+### Severity ranges
+
+Rolled per firing, then the actual values are rolled again inside the
+range — so two events of the same severity never share a curve.
+
+| Severity | Chance | Price change | Duration | Ripple reaches |
+|---|:-:|---|---|:-:|
+| LOW | 60% | +15% to +20% | 2–4 months | tier 1 |
+| MEDIUM | 30% | +20% to +30% | 4–7 months | tier 1 |
+| HIGH | 10% | +40% to +50% | 8–12 months | tier 1 |
+
+<details><summary>Curve shape per severity</summary>
+
+| Severity | Peak at | Rise | Plateau holds | Correction | Daily jitter | Ripple scale |
+|---|---|---|---|---|---|---|
+| LOW | 45–65% in | 1.2–1.6 | 75% of peak | 0.6 mo | ±1.5% | 1.00 |
+| MEDIUM | 45–65% in | 1.2–1.6 | 80% of peak | 0.8 mo | ±2% | 1.00 |
+| HIGH | 45–65% in | 1.2–1.6 | 85% of peak | 1 mo | ±2.5% | 1.00 |
+
+*Peak at* is a fraction of the event's duration. *Rise* is the onset
+exponent: below 1 climbs fast then flattens, above 1 starts slow and
+accelerates. *Plateau holds* is where the price settles after the peak,
+as a share of the peak swing — high values keep the base product
+elevated while the ripple travels up the chain.
+
+</details>
+
+### Weighting per month
+
+| | Jan | Feb | Mar | Apr | May | Jun | Jul | Aug | Sep | Oct | Nov | Dec |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| **Weight** | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 | 1 |
+| **Share** | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% | 8% |
+
+*Share* is the chance of this event firing in that month given that
+it fires at all — the weights are normalised, so the window sets
+**when** the event happens, never **how often**. A dash means the
+event cannot start that month.
+
+### Messages
+
+**LOW — Market Report: Fresh Food Fad**
+
+> A popular cookery show has put fresh ingredients back in fashion. Lettuce,
+> tomatoes, strawberries, spring onions, cabbage, chilli and garlic are
+> picking up a little, along with cheese, mozzarella, olive oil and grape
+> juice, while tins and jars are left on the shelf. A small lift for
+> glasshouses, dairies and groves; slightly slower trade for the canneries.
+
+**MEDIUM — Market Report: Clean Eating Trend**
+
+> Fresh and local is the fashion of the season. Lettuce, tomatoes,
+> strawberries, spring onions, cabbage, chilli and garlic are climbing
+> steadily as the habit spreads, and so are cheese, mozzarella, olive oil and
+> grape juice, with dairies and presses paying more for milk, olives and
+> grapes. Canned soups, jarred and preserved vegetables are out of favour and
+> sliding.
+
+**HIGH — Market Alert: Gourmet Craze**
+
+> The whole country has gone mad for fresh food. Restaurants and market stalls
+> cannot get enough lettuce, tomatoes, strawberries, spring onions, cabbage,
+> chilli and garlic, nor cheese, mozzarella, olive oil and grape juice, and
+> dairies and presses are competing hard for milk, olives and grapes. Nobody
+> wants a tin any more: soups and canned vegetables are piling up in the
+> warehouses. Fashions like this build slowly and take a long time to fade.
 
 ---
 
